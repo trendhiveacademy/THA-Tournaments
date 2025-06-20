@@ -461,6 +461,7 @@ def get_website_content_api():
         return jsonify({"success": False, "message": f"Server error fetching website content: {e}"}), 500
 
 
+
 @app.route('/api/register_tournament', methods=['POST'])
 def register_tournament():
     """
