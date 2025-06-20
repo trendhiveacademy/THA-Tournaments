@@ -15,7 +15,7 @@ from dotenv import load_dotenv # For loading environment variables from .env fil
 import os
 import traceback # For printing full tracebacks during debugging
 import requests # For Telegram notifications
-
+import json
 # =====================================================================
 # LOAD ENVIRONMENT VARIABLES
 # =====================================================================
@@ -48,14 +48,13 @@ CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for pro
 db = None # Initialize db as None
 try:
     # Use environment variable for Firebase service account key path
-    firebase_service_account_key_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_PATH')
+   firebase_service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON')
 
-    if not firebase_service_account_key_path:
-        raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_PATH environment variable not set in .env file.")
-    if not os.path.exists(firebase_service_account_key_path):
-        raise FileNotFoundError(f"Firebase service account key file not found at: {firebase_service_account_key_path}")
+    
+    if not firebase_service_account_json:
+        raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_JSON is missing from environment.")
 
-    cred = credentials.Certificate(firebase_service_account_key_path)
+    cred = credentials.Certificate(json.loads(firebase_service_account_json))
     firebase_admin.initialize_app(cred)
     db = firestore.client()
     print("Firebase Admin SDK initialized successfully.")
