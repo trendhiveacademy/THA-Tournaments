@@ -446,7 +446,7 @@ def get_prize_items_api():
 
 
 @app.route('/api/configs/website_content', methods=['GET'])
-print("📥 /api/configs/website_content was hit.")
+print("/api/configs/website_content was hit.")
 def get_website_content_api():
     """API endpoint to get static website content (rules, contact info)."""
     try:
