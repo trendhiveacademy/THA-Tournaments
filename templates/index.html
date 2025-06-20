@@ -1065,24 +1065,27 @@
         contactContentDiv.innerHTML = '<p class="text-center text-gray-600">Loading contact information...</p>';
 
         try {
-            const response = await fetch('/api/configs/website_content');
-            const result = await response.json();
+  const response = await fetch('/api/configs/website_content');
+  if (!response.ok) {
+    throw new Error(`Server returned status ${response.status}`);
+  }
+  const result = await response.json();
 
-            if (result.success && result.content) {
-                rulesContentDiv.innerHTML = result.content.rules ? result.content.rules.replace(/\n/g, '<br>') : 'No rules configured yet. Please check back later!';
-                contactContentDiv.innerHTML = result.content.contact ? result.content.contact.replace(/\n/g, '<br>') : 'No contact information configured yet. Please check back later!';
-            } else {
-                rulesContentDiv.innerHTML = '<p class="text-center text-gray-600">Failed to load rules.</p>';
-                contactContentDiv.innerHTML = '<p class="text-center text-gray-600">Failed to load contact information.</p>';
-                await openModal(result.message || 'Failed to load website content.');
-            }
-        } catch (error) {
-            console.error('Error fetching website content:', error);
-            rulesContentDiv.innerHTML = '<p class="text-center text-red-500">Error loading rules. Please try again later.</p>';
-            contactContentDiv.innerHTML = '<p class="text-center text-red-500">Error loading contact information. Please try again later.</p>';
-            await openModal(`Failed to connect to backend for website content: ${error.message}`);
-        }
-    };
+  if (result.success && result.content) {
+    rulesContentDiv.innerHTML = result.content.rules ? result.content.rules.replace(/\n/g, '<br>') : 'No rules yet.';
+    contactContentDiv.innerHTML = result.content.contact ? result.content.contact.replace(/\n/g, '<br>') : 'No contact info yet.';
+  } else {
+    rulesContentDiv.innerHTML = 'Failed to load rules.';
+    contactContentDiv.innerHTML = 'Failed to load contact.';
+    await openModal(result.message || "No content returned.");
+  }
+} catch (error) {
+  console.error('Error fetching website content:', error);
+  rulesContentDiv.innerHTML = 'Error loading rules.';
+  contactContentDiv.innerHTML = 'Error loading contact.';
+  await openModal("Backend error: " + error.message);
+}
+
 
     const fetchAndDisplayScheduleItems = async () => {
         const scheduleTableBody = document.getElementById('scheduleTableBody');
