@@ -45,12 +45,12 @@ CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for pro
 # =====================================================================
 # IMPORTANT: Configure the path to your Firebase service account key JSON file.
 # This should be downloaded from Firebase Console -> Project settings -> Service accounts.
-db = None # Initialize db as None
-try:
-    # Use environment variable for Firebase service account key path
-   firebase_service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON')
+import json
 
-    
+db = None  # Initialize db as None
+try:
+    firebase_service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON')
+
     if not firebase_service_account_json:
         raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_JSON is missing from environment.")
 
@@ -58,19 +58,11 @@ try:
     firebase_admin.initialize_app(cred)
     db = firestore.client()
     print("Firebase Admin SDK initialized successfully.")
-except ValueError as e:
-    print(f"Configuration Error: {e}")
-    print("Please ensure FIREBASE_SERVICE_ACCOUNT_KEY_PATH is set correctly in your .env file and points to a valid JSON file.")
-    exit(1) # Exit if Firebase initialization fails due to configuration
-except FileNotFoundError as e:
-    print(f"File Error: {e}")
-    print("Please ensure the path to your 'serviceAccountKey.json' is correct and the file exists.")
-    exit(1) # Exit if Firebase initialization fails due to missing file
-except Exception as e:
-    print(f"Error initializing Firebase Admin SDK: {e}")
-    print("Please ensure your Firebase Admin SDK credentials are valid and have necessary permissions.")
-    exit(1) # Exit for any other unexpected Firebase errors
 
+except Exception as e:
+    print(f"FATAL ERROR initializing Firebase Admin SDK: {e}")
+    print("Check that your environment variable contains the correct Firebase service account JSON.")
+    exit(1)
 
 # =====================================================================
 # GLOBAL VARIABLES (for in-memory caching and ADMIN_UID)
