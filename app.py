@@ -444,26 +444,24 @@ def get_prize_items_api():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Server error fetching prize items: {e}"}), 500
 
-
 @app.route('/api/configs/website_content', methods=['GET'])
-print("/api/configs/website_content was hit.")
 def get_website_content_api():
-    """API endpoint to get static website content (rules, contact info)."""
+    print("[INFO] /api/configs/website_content was hit.")
     try:
-        print("🔧 Accessing Firestore...")
         doc_ref = db.collection('configs').document('website_content')
         doc = doc_ref.get()
         if doc.exists:
             content = doc.to_dict()
-            print("API: Serving website content.")
+            print("[INFO] Website content loaded:", content)
             return jsonify({"success": True, "content": content}), 200
         else:
-            print("Website content document 'website_content' not found in 'configs' collection.")
-            return jsonify({"success": False, "message": "Website content not configured."}), 404
+            print("[WARNING] website_content doc does not exist")
+            return jsonify({"success": False, "message": "Content missing"}), 404
     except Exception as e:
-        print(f"Error fetching website content for public API: {e}")
+        print("[ERROR] Error in website_content API:", e)
+        import traceback
         traceback.print_exc()
-        return jsonify({"success": False, "message": f"Server error fetching website content: {e}"}), 500
+        return jsonify({"success": False, "message": "Internal error"}), 500
 
 
 
