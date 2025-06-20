@@ -57,7 +57,10 @@ try:
     cred = credentials.Certificate(json.loads(firebase_service_account_json))
     firebase_admin.initialize_app(cred)
     db = firestore.client()
+    print(f"✅ Firestore client initialized: db = {db}")
     print("Firebase Admin SDK initialized successfully.")
+    print(f"🔍 FIREBASE_SERVICE_ACCOUNT_KEY_JSON is set: {bool(os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON'))}")
+
 
 except Exception as e:
     print(f"FATAL ERROR initializing Firebase Admin SDK: {e}")
@@ -443,9 +446,11 @@ def get_prize_items_api():
 
 
 @app.route('/api/configs/website_content', methods=['GET'])
+print("📥 /api/configs/website_content was hit.")
 def get_website_content_api():
     """API endpoint to get static website content (rules, contact info)."""
     try:
+        print("🔧 Accessing Firestore...")
         doc_ref = db.collection('configs').document('website_content')
         doc = doc_ref.get()
         if doc.exists:
