@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Free Fire Tournament</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom Fonts from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Light, clean, airy background */
+            background: linear-gradient(135deg, #F8FAFC 0%, #F0F4F8 100%);
+            color: #334155; /* Dark gray for main text */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 2.5rem;
+            padding-bottom: 2.5rem;
+        }
+        h1, h2, h3 {
+            font-family: 'Oxanium', sans-serif;
+            color: #1F2937; /* Very dark gray for strong headings */
+        }
+        h1 {
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.1); /* Soft shadow for readability */
+        }
+        h2 {
+            color: #1F2937; /* Main section headings */
+        }
+
+        /* Keyframe Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Applying Animations */
+        .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
+        .animate-fade-in-up { animation: fadeInUp 0.7s ease-out forwards; }
+        .animate-slide-in-left { animation: slideInLeft 0.9s ease-out forwards; }
+        .loading-animation {
+            border: 4px solid rgba(150, 150, 150, 0.3);
+            border-top: 4px solid #60A5FA; /* Soft blue */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+        }
+
+        /* Base element styling for clean feel */
+        .card-base {
+            background-color: #FFFFFF; /* Pure white background */
+            border: 1px solid #E2E8F0; /* Very light subtle border */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); /* Soft, diffused shadow */
+            border-radius: 1rem; /* Generously rounded corners */
+            padding: 3rem; /* More generous padding */
+            transition: all 0.3s ease-in-out;
+        }
+        .card-base:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); /* More pronounced shadow on hover */
+        }
+
+        /* Header specific styles */
+        header {
+            background: #FFFFFF; /* Pure white header */
+            border-bottom: 2px solid #D1D8E0; /* Subtle divider line */
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05); /* Lighter shadow */
+        }
+        h1 {
+            color: #1F2937; /* Dark text for title */
+        }
+
+        /* Button styles */
+        .modern-btn {
+            background: linear-gradient(45deg, #60A5FA, #3B82F6); /* Soft blue gradient */
+            color: #FFF;
+            font-weight: 600;
+            padding: 0.9rem 2.2rem;
+            border-radius: 0.75rem; /* More rounded */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Soft shadow */
+            transition: all 0.3s ease-in-out;
+            border: none;
+            cursor: pointer;
+            background-size: 200% auto;
+            position: relative; /* For pseudo-element glow */
+            overflow: hidden;
+            z-index: 1;
+        }
+        .modern-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.1); /* Subtle internal light shimmer */
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease-out;
+            z-index: -1;
+        }
+        .modern-btn:hover::before {
+            transform: scaleX(1);
+        }
+        .modern-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3); /* Lifted shadow */
+            background-position: right center; /* Gradient shift */
+        }
+        .modern-btn:disabled {
+            background: #CBD5E1;
+            color: #64748B;
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.7;
+            transform: none;
+        }
+
+        /* Form input styles */
+        input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea, select {
+            background-color: #F8FAFC; /* Light input background */
+            border: 1px solid #CBD5E1; /* Subtle border */
+            color: #334155;
+            border-radius: 0.6rem;
+            padding: 0.8rem 1.2rem;
+            transition: all 0.2s ease-in-out;
+        }
+        input[type="text"]::placeholder, input[type="email"]::placeholder, input[type="password"]::placeholder, textarea::placeholder, select::placeholder {
+            color: #94A3B8; /* Muted placeholder text */
+        }
+        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #60A5FA; /* Soft blue focus glow */
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.4);
+        }
+        
+        /* Table styles */
+        table {
+            background-color: #FFFFFF; /* Pure white table background */
+            border-radius: 1rem;
+            overflow: hidden; /* Ensures rounded corners on table */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* Soft shadow for tables */
+        }
+        th {
+            background: #E2E8F0; /* Light gray header background */
+            color: #475569; /* Darker gray for headers */
+            font-weight: 600;
+            padding: 1.2rem 1.5rem; /* More padding */
+        }
+        td {
+            border-bottom: 1px solid #E2E8F0; /* Very light border */
+            color: #475569; /* Standard text color */
+            padding: 1rem 1.5rem;
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        tbody tr:hover {
+            background-color: #F0F4F8; /* Subtle light gray hover effect */
+        }
+
+        /* Section specific styles - subtle color variations */
+        .section-light-blue-tint { 
+            background-color: #F8FAFC; 
+            border-left: 5px solid #A5D6F9; /* Very light blue accent */
+        }
+        .section-light-green-tint {
+            background-color: #F8FAFC;
+            border-left: 5px solid #81C784; /* Very light green accent */
+        }
+        .section-light-orange-tint {
+            background-color: #F8FAFC;
+            border-left: 5px solid #FFCC80; /* Very light orange accent */
+        }
+        .section-light-red-tint {
+            background-color: #F8FAFC;
+            border-left: 5px solid #FFAB91; /* Very light red/coral accent */
+        }
+        .section-light-purple-tint {
+            background-color: #F8FAFC;
+            border-left: 5px solid #CF9FFF; /* Very light purple accent */
+        }
+        .section-light-pink-tint {
+            background-color: #F8FAFC;
+            border-left: 5px solid #FFC1E3; /* Very light pink accent */
+        }
+
+        /* Textarea content areas for rules/contact in admin that now preserve newlines literally */
+        .admin-content-textarea {
+            background-color: #F0F4F8; /* Slightly darker than main body for contrast */
+            border: 1px solid #D1D8E0;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); /* Inner shadow */
+            padding: 1.2rem;
+            border-radius: 0.75rem;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text for editing */
+            line-height: 1.6; /* Improve readability of multiline text */
+            color: #475569; /* Consistent text color */
+        }
+
+
+        /* Custom Modal Styling - Adapting to theme */
+        .custom-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent dark overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+        }
+        .custom-modal.flex {
+            opacity: 1;
+            visibility: visible;
+        }
+        .custom-modal-content {
+            background-color: #FFFFFF; /* White modal background */
+            color: #334155;
+            border: 1px solid #D1D8E0; /* Subtle border */
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25); /* Stronger, softer shadow */
+            border-radius: 1rem;
+            padding: 2.5rem;
+            position: relative;
+            transform: translateY(20px); /* Initial subtle drop-in */
+            transition: transform 0.3s ease-out;
+        }
+        .custom-modal.flex .custom-modal-content {
+            transform: translateY(0); /* Animate to original position */
+        }
+        .custom-modal-close-button {
+            color: #64748B; /* Muted gray for close button */
+            font-size: 2rem;
+            font-weight: 300; /* Lighter weight */
+            cursor: pointer;
+            transition: color 0.2s ease-in-out;
+        }
+        .custom-modal-close-button:hover {
+            color: #EF4444; /* Soft red on hover */
+        }
+        .custom-modal .btn-primary-modal {
+            background: linear-gradient(45deg, #60A5FA, #3B82F6);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+            color: #FFF;
+            font-weight: 600;
+            padding: 0.75rem 1.75rem;
+            border-radius: 0.6rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .custom-modal .btn-primary-modal:hover {
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.25);
+            transform: translateY(-1px);
+        }
+        .custom-modal .btn-secondary-modal {
+            background-color: #E2E8F0;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+            font-weight: 500;
+            padding: 0.75rem 1.75rem;
+            border-radius: 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .custom-modal .btn-secondary-modal:hover {
+            background-color: #D1D8E0;
+            color: #334155;
+        }
+
+        /* Icon Colors - Adjusted for the lighter theme */
+        .text-blue-600 {
+            color: #3B82F6; /* Blue */
+        }
+        .text-yellow-600 {
+            color: #F59E0B; /* Amber */
+        }
+        .text-green-600 {
+            color: #10B981; /* Emerald Green */
+        }
+        .text-indigo-600 {
+            color: #6366F1; /* Indigo */
+        }
+        .text-red-600 {
+            color: #EF4444; /* Red */
+        }
+        .text-purple-600 {
+            color: #8B5CF6; /* Indigo */
+        }
+        .text-pink-600 {
+            color: #EC4899; /* Pink */
+        }
+        /* Specific button color overrides, matching accent palette */
+        .modern-btn.\!bg-green-600 {
+            background: linear-gradient(45deg, #34D399, #10B981); /* Green */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .modern-btn.\!bg-green-600:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+        }
+        .modern-btn.\!bg-red-500 {
+            background: linear-gradient(45deg, #F87171, #EF4444); /* Red */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .modern-btn.\!bg-red-500:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+        }
+        .modern-btn.\!bg-gray-700 {
+            background: #94A3B8; /* Slate gray for secondary action */
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+        .modern-btn.\!bg-gray-700:hover {
+            background: #64748B;
+            box-shadow: 0 5px 12px rgba(0,0,0,0.2);
+        }
+        .modern-btn.\!bg-purple-600 {
+            background: linear-gradient(45deg, #8B5CF6, #6D28D9); /* Purple */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .modern-btn.\!bg-purple-600:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+        }
+        .modern-btn.\!bg-yellow-600 {
+            background: linear-gradient(45deg, #FACC15, #F59E0B); /* Amber */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .modern-btn.\!bg-yellow-600:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+        }
+        .modern-btn.\!bg-indigo-600 {
+            background: linear-gradient(45deg, #6366F1, #4F46E5); /* Indigo */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .modern-btn.\!bg-indigo-600:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+        }
+        .modern-btn.\!bg-pink-600 {
+            background: linear-gradient(45deg, #EC4899, #DB2777); /* Pink */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .modern-btn.\!bg-pink-600:hover {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+        }
+
+        /* Status colors for registrations table (admin_panel) */
+        .status-completed { 
+            color: #10B981; /* Emerald Green */
+            font-weight: 600;
+        }
+        .status-canceled { 
+            color: #EF4444; /* Red */
+            font-weight: 600;
+        }
+        .status-active { 
+            color: #3B82F6; /* Blue */
+            font-weight: 600;
+        }
+        /* Input fields inside tables for room code/pass */
+        #allRegistrationsTableBody input[type="text"] {
+            background-color: #F8FAFC;
+            border: 1px solid #CBD5E1;
+            color: #334155;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            width: 100%;
+        }
+
+        /* Text color overrides for compatibility */
+        .text-red-700 { color: #DC2626; } /* Strong red for attention */
+        .text-cyan-300 { color: #60A5FA; } /* Using a standard blue for sub-heading */
+        .text-gray-300 { color: #475569; } /* Darker gray for general text */
+        .text-blue-300 { color: #3B82F6; } /* Main blue accent for titles/labels */
+        .text-purple-300 { color: #8B5CF6; } /* Purple accent */
+    </style>
+</head>
+<body class="py-8 px-4">
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 flex items-center justify-center bg-gray-100 z-50">
+        <div class="flex flex-col items-center">
+            <div class="loading-animation"></div>
+            <p class="mt-4 text-xl font-semibold text-gray-700">Loading Admin Panel...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="hidden card-base max-w-7xl w-full flex flex-col items-center">
+
+        <!-- Header -->
+        <header class="text-center mb-12 w-full p-8 card-base shadow-lg animate-fade-in">
+            <h1 class="text-5xl lg:text-6xl font-extrabold mb-4 animate-slide-in-left">
+                Admin Panel 🛡️
+            </h1>
+            <p class="text-xl lg:text-2xl text-cyan-300 font-semibold mb-8 animate-fade-in">Manage Users and Tournament Content</p>
+            
+            <div class="border-b-4 border-gray-200 mt-8 mb-6"></div>
+
+            <div class="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-4 sm:space-y-0 text-gray-700">
+                <span class="text-md sm:text-lg font-medium text-center sm:text-left">
+                    Logged in as: <span class="font-bold text-red-700" id="loggedInEmail"></span> (ID: <span class="font-bold text-red-700 break-all" id="loggedInUserId"></span>)
+                </span>
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto items-center sm:items-stretch">
+                    <a href="/" class="modern-btn !bg-purple-600 hover:!bg-purple-600 w-full sm:w-auto">
+                        <i class="fas fa-home mr-2"></i>Go to Home
+                    </a>
+                    <button id="logoutButton" class="modern-btn !bg-red-500 hover:!bg-red-500 w-full sm:w-auto">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- User Management Section -->
+        <section class="w-full mb-12 card-base section-light-blue-tint animate-fade-in-up">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-8 text-center flex items-center justify-center">
+                <i class="fas fa-users-cog text-blue-600 mr-3"></i>User Management (Firebase Auth)
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Create User -->
+                <div class="card-base p-6 shadow-inner border border-blue-200">
+                    <h3 class="text-xl font-semibold text-blue-600 mb-4">Create New User</h3>
+                    <form id="createUserForm" class="space-y-4">
+                        <div>
+                            <label for="createUserEmail" class="block text-gray-700 text-base font-bold mb-2">Email:</label>
+                            <input type="email" id="createUserEmail" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" required>
+                        </div>
+                        <div>
+                            <label for="createUserPassword" class="block text-gray-700 text-base font-bold mb-2">Password:</label>
+                            <input type="password" id="createUserPassword" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" required>
+                        </div>
+                        <button type="submit" class="modern-btn !bg-green-600 hover:!bg-green-600">
+                            Create User <i class="fas fa-user-plus ml-2"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Update Password -->
+                <div class="card-base p-6 shadow-inner border border-yellow-200">
+                    <h3 class="text-xl font-semibold text-yellow-600 mb-4">Update User Password</h3>
+                    <form id="updatePasswordForm" class="space-y-4">
+                        <div>
+                            <label for="updatePasswordIdentifier" class="block text-gray-700 text-base font-bold mb-2">User UID or Email:</label>
+                            <input type="text" id="updatePasswordIdentifier" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="UID or Email" required>
+                        </div>
+                        <div>
+                            <label for="newPassword" class="block text-gray-700 text-base font-bold mb-2">New Password:</label>
+                            <input type="password" id="newPassword" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" required>
+                        </div>
+                        <button type="submit" class="modern-btn !bg-yellow-600 hover:!bg-yellow-600">
+                            Update Password <i class="fas fa-key ml-2"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Delete User -->
+                <div class="card-base p-6 shadow-inner col-span-full border border-red-200">
+                    <h3 class="text-xl font-semibold text-red-600 mb-4">Delete User</h3>
+                    <form id="deleteUserForm" class="space-y-4">
+                        <div>
+                            <label for="deleteUserIdentifier" class="block text-gray-700 text-base font-bold mb-2">User UID or Email:</label>
+                            <input type="text" id="deleteUserIdentifier" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="UID or Email" required>
+                        </div>
+                        <button type="submit" class="modern-btn !bg-red-600 hover:!bg-red-600">
+                            Delete User <i class="fas fa-user-minus ml-2"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dynamic Content Management Sections Start Here -->
+
+        <!-- Website Content (Rules & Contact) Management -->
+        <section class="w-full mb-12 card-base section-light-orange-tint animate-fade-in-up">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-8 text-center flex items-center justify-center">
+                <i class="fas fa-globe text-yellow-600 mr-3"></i>Website Static Content
+            </h2>
+            <form id="websiteContentForm" class="space-y-6">
+                <div>
+                    <label for="rulesContent" class="block text-gray-700 text-base font-bold mb-2">Tournament Rules & Conditions:</label>
+                    <textarea id="rulesContent" rows="10" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 admin-content-textarea" placeholder="Enter rules as plain text. Each line break and space will appear exactly as typed."></textarea>
+                </div>
+                <div>
+                    <label for="contactContent" class="block text-gray-700 text-base font-bold mb-2">Contact & Support:</label>
+                    <textarea id="contactContent" rows="5" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 admin-content-textarea" placeholder="Enter contact info as plain text. Each line break and space will appear exactly as typed."></textarea>
+                </div>
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-6 w-full sm:w-auto items-center sm:items-stretch">
+                    <button type="submit" class="modern-btn w-full sm:w-auto">
+                        Update Website Content <i class="fas fa-save ml-2"></i>
+                    </button>
+                    <button type="button" onclick="fetchWebsiteContent()" class="modern-btn !bg-gray-700 hover:!bg-gray-700 w-full sm:w-auto">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Match Slots Management -->
+        <section class="w-full mb-12 card-base section-light-green-tint animate-fade-in-up">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-8 text-center flex items-center justify-center">
+                <i class="fas fa-gamepad text-green-600 mr-3"></i>Manage Match Slots
+            </h2>
+            <form id="matchSlotForm" class="space-y-6 mb-8 p-6 card-base shadow-inner border border-green-200">
+                <h3 class="text-xl font-semibold text-green-600 mb-4">Add/Update Match Slot</h3>
+                <input type="hidden" id="matchSlotFormId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="slotId" class="block text-gray-700 text-base font-bold mb-2">Slot ID (Unique):</label>
+                        <input type="text" id="slotId" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., brSolo, csTeam1" required>
+                    </div>
+                    <div>
+                        <label for="slotType" class="block text-gray-700 text-base font-bold mb-2">Match Type:</label>
+                        <input type="text" id="slotType" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., BR Solo, CS Team Match" required>
+                    </div>
+                    <div>
+                        <label for="slotTime" class="block text-gray-700 text-base font-bold mb-2">Match Time (HH:MM):</label>
+                        <input type="text" id="slotTime" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., 14:00" required>
+                    </div>
+                    <div>
+                        <label for="minPlayers" class="block text-gray-700 text-base font-bold mb-2">Min Players:</label>
+                        <input type="number" id="minPlayers" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" value="0" required>
+                    </div>
+                    <div>
+                        <label for="maxPlayers" class="block text-gray-700 text-base font-bold mb-2">Max Players (or Teams):</label>
+                        <input type="number" id="maxPlayers" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" value="0" required>
+                    </div>
+                    <div>
+                        <label for="entryFee" class="block text-gray-700 text-base font-bold mb-2">Entry Fee:</label>
+                        <input type="number" step="0.01" id="entryFee" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" value="0" required>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="slotPrize" class="block text-gray-700 text-base font-bold mb-2">Prize Description:</label>
+                        <input type="text" id="slotPrize" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., 🥇 ₹175 🥈 ₹105">
+                    </div>
+                    <div class="md:col-span-2 flex items-center">
+                        <input type="checkbox" id="slotActive" class="mr-3 h-5 w-5 text-green-600 rounded">
+                        <label for="slotActive" class="text-gray-700 text-base font-bold">Active</label>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-6 w-full sm:w-auto items-center sm:items-stretch">
+                    <button type="submit" class="modern-btn !bg-green-600 hover:!bg-green-600 w-full sm:w-auto">
+                        Save Match Slot <i class="fas fa-plus-circle ml-2"></i>
+                    </button>
+                    <button type="button" onclick="clearMatchSlotForm()" class="modern-btn !bg-gray-700 hover:!bg-gray-700 w-full sm:w-auto">
+                        Clear Form <i class="fas fa-undo ml-2"></i>
+                    </button>
+                </div>
+            </form>
+
+            <h3 class="text-xl font-semibold text-green-600 mb-4 text-center">Existing Match Slots</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full rounded-lg shadow-sm">
+                    <thead>
+                        <tr class="uppercase text-sm leading-normal">
+                            <th class="py-4 px-6 text-left">ID</th>
+                            <th class="py-4 px-6 text-left">Type</th>
+                            <th class="py-4 px-6 text-left">Time</th>
+                            <th class="py-4 px-6 text-left">Min Players</th>
+                            <th class="py-4 px-6 text-left">Max Players</th>
+                            <th class="py-4 px-6 text-left">Entry</th>
+                            <th class="py-4 px-6 text-left">Prize</th>
+                            <th class="py-4 px-6 text-left">Active</th>
+                            <th class="py-4 px-6 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matchSlotsTableBody" class="text-base font-light">
+                        <tr><td colspan="9" class="py-6 text-center text-gray-600">Loading match slots...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" onclick="fetchMatchSlots()" class="mt-6 modern-btn !bg-green-600 hover:!bg-green-600 w-full sm:w-auto">
+                <i class="fas fa-sync-alt mr-2"></i>Refresh Match Slots
+            </button>
+        </section>
+
+        <!-- Full Daily Schedule Management -->
+        <section class="w-full mb-12 card-base section-light-blue-tint animate-fade-in-up">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-8 text-center flex items-center justify-center">
+                <i class="fas fa-calendar-alt text-indigo-600 mr-3"></i>Manage Daily Schedule
+            </h2>
+            <form id="scheduleItemForm" class="space-y-6 mb-8 p-6 card-base shadow-inner border border-blue-200">
+                <h3 class="text-xl font-semibold text-indigo-600 mb-4">Add/Update Schedule Item</h3>
+                <input type="hidden" id="scheduleItemId">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="scheduleOrder" class="block text-gray-700 text-base font-bold mb-2">Order:</label>
+                        <input type="number" id="scheduleOrder" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" value="0" required>
+                    </div>
+                    <div>
+                        <label for="scheduleTime" class="block text-gray-700 text-base font-bold mb-2">Time (e.g., 10:00 AM):</label>
+                        <input type="text" id="scheduleTime" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., 10:00 AM" required>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label for="scheduleDescription" class="block text-gray-700 text-base font-bold mb-2">Description:</label>
+                        <input type="text" id="scheduleDescription" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., Registration Opens" required>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label for="scheduleNotes" class="block text-gray-700 text-base font-bold mb-2">Notes:</label>
+                        <textarea id="scheduleNotes" rows="3" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="Any additional notes"></textarea>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-6 w-full sm:w-auto items-center sm:items-stretch">
+                    <button type="submit" class="modern-btn !bg-indigo-600 hover:!bg-indigo-600 w-full sm:w-auto">
+                        Save Schedule Item <i class="fas fa-plus-circle ml-2"></i>
+                    </button>
+                    <button type="button" onclick="clearScheduleItemForm()" class="modern-btn !bg-gray-700 hover:!bg-gray-700 w-full sm:w-auto">
+                        Clear Form <i class="fas fa-undo ml-2"></i>
+                    </button>
+                </div>
+            </form>
+
+            <h3 class="text-xl font-semibold text-indigo-600 mb-4 text-center">Existing Schedule Items</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full rounded-lg shadow-sm">
+                    <thead>
+                        <tr class="uppercase text-sm leading-normal">
+                            <th class="py-4 px-6 text-left">Order</th>
+                            <th class="py-4 px-6 text-left">Time</th>
+                            <th class="py-4 px-6 text-left">Description</th>
+                            <th class="py-4 px-6 text-left">Notes</th>
+                            <th class="py-4 px-6 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleItemsTableBody" class="text-base font-light">
+                        <tr><td colspan="5" class="py-6 text-center text-gray-600">Loading schedule items...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" onclick="fetchScheduleItems()" class="mt-6 modern-btn !bg-indigo-600 hover:!bg-indigo-600 w-full sm:w-auto">
+                <i class="fas fa-sync-alt mr-2"></i>Refresh Schedule
+            </button>
+        </section>
+
+        <!-- Prize Distribution Management -->
+        <section class="w-full mb-12 card-base section-light-orange-tint animate-fade-in-up">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-8 text-center flex items-center justify-center">
+                <i class="fas fa-trophy text-red-600 mr-3"></i>Manage Prize Distribution
+            </h2>
+            <form id="prizeItemForm" class="space-y-6 mb-8 p-6 card-base shadow-inner border border-orange-200">
+                <h3 class="text-xl font-semibold text-red-600 mb-4">Add/Update Prize Item</h3>
+                <input type="hidden" id="prizeItemId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="prizeOrder" class="block text-gray-700 text-base font-bold mb-2">Order:</label>
+                        <input type="number" id="prizeOrder" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" value="0" required>
+                    </div>
+                    <div>
+                        <label for="prizeMatchType" class="block text-gray-700 text-base font-bold mb-2">Match Type:</label>
+                        <input type="text" id="prizeMatchType" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., BR Solo" required>
+                    </div>
+                    <div>
+                        <label for="entryFeeCol" class="block text-gray-700 text-base font-bold mb-2">Entry Fee:</label>
+                        <input type="text" id="entryFeeCol" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., ₹10">
+                    </div>
+                    <div>
+                        <label for="totalPlayersExample" class="block text-gray-700 text-base font-bold mb-2">Total Players (Example):</label>
+                        <input type="text" id="totalPlayersExample" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., 50 Players">
+                    </div>
+                    <div>
+                        <label for="totalFeeCol" class="block text-gray-700 text-base font-bold mb-2">Total Fee:</label>
+                        <input type="text" id="totalFeeCol" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., ₹500">
+                    </div>
+                    <div>
+                        <label for="prizePoolCol" class="block text-gray-700 text-base font-bold mb-2">Prize Pool:</label>
+                        <input type="text" id="prizePoolCol" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., ₹350">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="prizeDistributionContent" class="block text-gray-700 text-base font-bold mb-2">Prize Distribution:</label>
+                        <input type="text" id="prizeDistributionContent" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="e.g., 🥇 ₹175 🥈 ₹105 🥉 ₹70">
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-6 w-full sm:w-auto items-center sm:items-stretch">
+                    <button type="submit" class="modern-btn !bg-red-600 hover:!bg-red-600 w-full sm:w-auto">
+                        Save Prize Item <i class="fas fa-plus-circle ml-2"></i>
+                    </button>
+                    <button type="button" onclick="clearPrizeItemForm()" class="modern-btn !bg-gray-700 hover:!bg-gray-700 w-full sm:w-auto">
+                        Clear Form <i class="fas fa-undo ml-2"></i>
+                    </button>
+                </div>
+            </form>
+
+            <h3 class="text-xl font-semibold text-red-600 mb-4 text-center">Existing Prize Items</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full rounded-lg shadow-sm">
+                    <thead>
+                        <tr class="uppercase text-sm leading-normal">
+                            <th class="py-4 px-6 text-left">Order</th>
+                            <th class="py-4 px-6 text-left">Match Type</th>
+                            <th class="py-4 px-6 text-left">Entry Fee</th>
+                            <th class="py-4 px-6 text-left">Players</th>
+                            <th class="py-4 px-6 text-left">Total Fee</th>
+                            <th class="py-4 px-6 text-left">Prize Pool</th>
+                            <th class="py-4 px-6 text-left">Distribution</th>
+                            <th class="py-4 px-6 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prizeItemsTableBody" class="text-base font-light">
+                        <tr><td colspan="8" class="py-6 text-center text-gray-600">Loading prize items...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" onclick="fetchPrizeItems()" class="mt-6 modern-btn !bg-red-600 hover:!bg-red-600 w-full sm:w-auto">
+                <i class="fas fa-sync-alt mr-2"></i>Refresh Prize Items
+            </button>
+        </section>
+
+
+        <!-- All Tournament Registrations Section (Existing) -->
+        <section class="w-full card-base section-light-purple-tint animate-fade-in-up">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-8 text-center flex items-center justify-center">
+                <i class="fas fa-list-alt text-purple-600 mr-3"></i>All Tournament Registrations
+            </h2>
+            <!-- Update Match Room Details Section (Existing, using dynamic match list) -->
+            <div class="mb-10 p-6 card-base shadow-inner section-light-pink-tint animate-fade-in-up">
+                <h3 class="text-2xl font-bold text-pink-600 mb-4 text-center flex items-center justify-center">
+                    <i class="fas fa-bullhorn text-pink-600 mr-3"></i>Update Match Room Details (Batch)
+                </h3>
+                <form id="updateMatchRoomDetailsForm" class="space-y-4">
+                    <div>
+                        <label for="matchToUpdate" class="block text-gray-700 text-base font-bold mb-2">Select Match:</label>
+                        <select id="matchToUpdate" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" required>
+                            <option value="">-- Loading Matches --</option>
+                            <!-- Options will be dynamically populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="batchRoomCode" class="block text-gray-700 text-base font-bold mb-2">Room Code:</label>
+                        <input type="text" id="batchRoomCode" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="Enter Room Code">
+                    </div>
+                    <div>
+                        <label for="batchRoomPassword" class="block text-gray-700 text-base font-bold mb-2">Room Password:</label>
+                        <input type="text" id="batchRoomPassword" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4" placeholder="Enter Room Password">
+                    </div>
+                    <button type="submit" class="modern-btn !bg-pink-600 hover:!bg-pink-600">
+                        Update Room Details for Match <i class="fas fa-upload ml-2"></i>
+                    </button>
+                </form>
+            </div>
+            <!-- End Update Match Room Details Section -->
+
+            <button onclick="fetchAllRegistrationsForAdmin()" class="mb-6 modern-btn !bg-purple-600 hover:!bg-purple-600">
+                Refresh Registrations <i class="fas fa-sync-alt ml-2"></i>
+            </button>
+            <div class="overflow-x-auto">
+                <table class="min-w-full rounded-lg shadow-sm">
+                    <thead>
+                        <tr class="uppercase text-sm leading-normal">
+                            <th class="py-4 px-6 text-left rounded-tl-lg">User ID</th>
+                            <th class="py-4 px-6 text-left">Email</th>
+                            <th class="py-4 px-6 text-left">Match Type</th>
+                            <th class="py-4 px-6 text-left">Match Time</th>
+                            <th class="py-4 px-6 text-left">Slot</th>
+                            <th class="py-4 px-6 text-left">IGL IGN / FFID</th>
+                            <th class="py-4 px-6 text-left">Teammates</th>
+                            <th class="py-4 px-6 text-left">Status</th>
+                            <th class="py-4 px-6 text-left">Registered On</th>
+                            <th class="py-4 px-6 text-left">Room Code</th>
+                            <th class="py-4 px-6 text-left">Room Pass</th>
+                            <th class="py-4 px-6 text-center rounded-tr-lg">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allRegistrationsTableBody" class="text-base font-light">
+                        <tr>
+                            <td colspan="12" class="py-6 text-center text-gray-600" id="noAllRegistrationsMessage">
+                                Loading registrations...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Custom Modal for Messages and Confirmations (same as other pages) -->
+    <div id="customModal" class="custom-modal">
+        <div class="custom-modal-content w-full max-w-md mx-auto">
+            <span class="custom-modal-close-button" onclick="closeModal()">&times;</span>
+            <div id="modalContent" class="py-6 px-4 sm:px-6">
+                <!-- Message will be inserted here -->
+            </div>
+            <div id="modalButtons" class="mt-8 flex justify-center space-x-4">
+                <button id="modalConfirmBtn" class="hidden btn-primary-modal">
+                    Confirm
+                </button>
+                <button id="modalCancelBtn" class="hidden btn-secondary-modal" onclick="closeModal()">
+                    Cancel
+                </button>
+                <button id="modalOkBtn" class="btn-primary-modal" onclick="closeModal()">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (ES Module version) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        // Removed Markdown-it import here as it's no longer used for website content
+
+        // Firebase Configuration (Same as other pages)
+        const firebaseConfig = {
+            apiKey: "AIzaSyD48ch2_ZWn2XPuV-G6wU4Wm3BI1YVGASw",
+            authDomain: "tournaments-a652c.firebaseapp.com",
+            projectId: "tournaments-a652c",
+            storageBucket: "tournaments-a652c.firebaseapp.com",
+            messagingSenderId: "989795533335",
+            appId: "1:989795533335:web:b45cb8f8c7853b7f1e5252",
+            measurementId: "G-M3XGTFTQ4G"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let adminUserId = null; // To store the UID of the logged-in admin
+
+        // --- Custom Modal Functions (re-used) ---
+        window.openModal = (messageHtml, type = 'ok') => {
+            return new Promise((resolve) => {
+                const modalContentEl = document.getElementById('modalContent');
+                const customModalEl = document.getElementById('customModal');
+                const modalOkBtn = document.getElementById('modalOkBtn');
+                const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+                const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+                if (!modalContentEl || !customModalEl || !modalOkBtn || !modalConfirmBtn || !modalCancelBtn) {
+                    console.error("Modal elements not found. Cannot open modal.");
+                    resolve(false);
+                    return;
+                }
+
+                modalContentEl.innerHTML = `<p class="text-xl font-semibold text-gray-700">${messageHtml}</p>`;
+                
+                modalOkBtn.classList.add('hidden');
+                modalConfirmBtn.classList.add('hidden');
+                modalCancelBtn.classList.add('hidden');
+
+                modalOkBtn.onclick = null;
+                modalConfirmBtn.onclick = null;
+                modalCancelBtn.onclick = null;
+
+                if (type === 'confirm_cancel') {
+                    modalConfirmBtn.classList.remove('hidden');
+                    modalCancelBtn.classList.remove('hidden');
+                    modalConfirmBtn.onclick = () => { closeModal(); resolve(true); };
+                    modalCancelBtn.onclick = () => { closeModal(); resolve(false); };
+                } else {
+                    modalOkBtn.classList.remove('hidden');
+                    modalOkBtn.onclick = () => { closeModal(); resolve(true); };
+                }
+                
+                customModalEl.classList.add('flex'); // Use class to toggle visibility and animation
+            });
+        };
+
+        window.closeModal = () => {
+            const customModalEl = document.getElementById('customModal');
+            if (customModalEl) {
+                customModalEl.classList.remove('flex');
+            }
+        };
+
+        // Helper function to check if a match is considered completed based on its scheduled time
+        function isMatchCompletedClientSide(matchTimeStr) {
+            try {
+                const now = new Date();
+                const [hours, minutes] = matchTimeStr.split(':').map(Number);
+                const matchDateTime = new Date(now.getFullYear(), now.getMonth(), now.day, hours, minutes, 0);
+                const completionTime = new Date(matchDateTime.getTime() + 60 * 60 * 1000); 
+                return now >= completionTime;
+            } catch (e) {
+                console.error("Error parsing match time for completion check:", e);
+                return false;
+            }
+        }
+
+        // --- Utility Function: Make API Request to Backend ---
+        async function makeAdminApiRequest(endpoint, method = 'GET', body = null) {
+            if (!adminUserId) {
+                await openModal('Authentication required or session expired. Please log in again.');
+                window.location.href = '/'; 
+                return { success: false, message: "Authentication required." };
+            }
+
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            if (body) {
+                options.body = JSON.stringify({ ...body, adminUserId: adminUserId }); // Always send adminUserId
+            } else if (method === 'GET') {
+                endpoint += `${endpoint.includes('?') ? '&' : '?'}adminUserId=${adminUserId}`;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:5000${endpoint}`, options);
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error(`[makeAdminApiRequest] Error with API request to ${endpoint}:`, error);
+                await openModal(`Failed to connect to the backend server. Please ensure app.py is running: ${error.message}`);
+                return { success: false, message: `Network error: ${error.message}` };
+            }
+        }
+
+        // --- User Management Functions ---
+        window.createUser = async (event) => { 
+            event.preventDefault();
+            const email = document.getElementById('createUserEmail').value;
+            const password = document.getElementById('createUserPassword').value;
+
+            if (!email || !password) {
+                await openModal('Please enter both email and password.');
+                return;
+            }
+            const result = await makeAdminApiRequest('/api/admin/create_firebase_user', 'POST', { email, password });
+            await openModal(result.message);
+            if (result.success) {
+                document.getElementById('createUserForm').reset();
+            }
+        }
+
+        window.updatePassword = async (event) => { 
+            event.preventDefault();
+            const identifier = document.getElementById('updatePasswordIdentifier').value;
+            const newPassword = document.getElementById('newPassword').value;
+
+            if (!identifier || !newPassword) {
+                await openModal('Please enter user UID/email and new password.');
+                return;
+            }
+            let body = {};
+            if (identifier.includes('@')) {
+                body.email = identifier;
+            } else {
+                body.uid = identifier;
+            }
+            const result = await makeAdminApiRequest('/api/admin/update_firebase_user_password', 'POST', body);
+            await openModal(result.message);
+            if (result.success) {
+                document.getElementById('updatePasswordForm').reset();
+            }
+        }
+
+        window.deleteUser = async (event) => { 
+            event.preventDefault();
+            const identifier = document.getElementById('deleteUserIdentifier').value;
+
+            if (!identifier) {
+                await openModal('Please enter user UID or email to delete.');
+                return;
+            }
+            const confirmed = await openModal(`Are you sure you want to permanently delete user: ${identifier}? This action cannot be undone.`, 'confirm_cancel');
+            if (!confirmed) {
+                return;
+            }
+            let body = {};
+            if (identifier.includes('@')) {
+                body.email = identifier;
+            } else {
+                body.uid = identifier;
+            }
+            const result = await makeAdminApiRequest('/api/admin/delete_firebase_user', 'POST', body);
+            await openModal(result.message);
+            if (result.success) {
+                document.getElementById('deleteUserForm').reset();
+            }
+        }
+
+        // --- Website Static Content Management ---
+        window.fetchWebsiteContent = async () => {
+            const result = await makeAdminApiRequest('/api/configs/website_content', 'GET');
+            if (result.success) {
+                document.getElementById('rulesContent').value = result.content.rules || '';
+                document.getElementById('contactContent').value = result.content.contact || '';
+            } else {
+                await openModal(result.message || 'Failed to fetch website content.');
+            }
+        };
+
+        window.updateWebsiteContent = async (event) => {
+            event.preventDefault();
+            const rules = document.getElementById('rulesContent').value;
+            const contact = document.getElementById('contactContent').value;
+            const content = { rules, contact };
+            const result = await makeAdminApiRequest('/api/admin/configs/update_website_content', 'POST', { content });
+            await openModal(result.message);
+        };
+
+        // --- Match Slots Management ---
+        window.fetchMatchSlots = async () => {
+            const tableBody = document.getElementById('matchSlotsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-600">Loading match slots...</td></tr>`;
+            const result = await makeAdminApiRequest('/api/match_slots', 'GET'); // Public endpoint, but called by admin UI
+            tableBody.innerHTML = ''; // Clear loading message
+
+            if (result.success && result.matchSlots.length > 0) {
+                result.matchSlots.sort((a, b) => a.time.localeCompare(b.time)); // Sort by time
+                result.matchSlots.forEach(slot => {
+                    const row = `
+                        <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                            <td class="py-4 px-6 text-left">${slot.id}</td>
+                            <td class="py-4 px-6 text-left">${slot.type}</td>
+                            <td class="py-4 px-6 text-left">${slot.time}</td>
+                            <td class="py-4 px-6 text-left">${slot.min_players || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${slot.max_players || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">₹${(slot.entry || 0).toFixed(2)}</td>
+                            <td class="py-4 px-6 text-left">${slot.prize || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">
+                                <span class="${slot.active ? 'text-green-600' : 'text-red-600'} font-bold">
+                                    ${slot.active ? 'Yes' : 'No'}
+                                </span>
+                            </td>
+                            <td class="py-4 px-6 text-center whitespace-nowrap">
+                                <button onclick="editMatchSlot('${slot.id}', '${slot.type}', '${slot.time}', ${slot.min_players}, ${slot.max_players}, ${slot.entry}, '${slot.prize}', ${slot.active})" class="modern-btn !bg-blue-600 hover:!bg-blue-600 text-xs mr-2 py-2 px-4">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button onclick="deleteMatchSlot('${slot.id}')" class="modern-btn !bg-red-600 hover:!bg-red-600 text-xs py-2 px-4">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+                populateMatchDropdown(result.matchSlots); // Update batch room details dropdown
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-600">No match slots found or failed to load.</td></tr>`;
+                populateMatchDropdown([]); // Clear batch room details dropdown
+                if (!result.success) {
+                    await openModal(result.message || 'Failed to load match slots.');
+                }
+            }
+        };
+
+        window.saveMatchSlot = async (event) => {
+            event.preventDefault();
+            const id = document.getElementById('slotId').value;
+            const type = document.getElementById('slotType').value;
+            const time = document.getElementById('slotTime').value;
+            const min_players = parseInt(document.getElementById('minPlayers').value);
+            const max_players = parseInt(document.getElementById('maxPlayers').value);
+            const entry = parseFloat(document.getElementById('entryFee').value);
+            const prize = document.getElementById('slotPrize').value;
+            const active = document.getElementById('slotActive').checked;
+
+            const slotData = { id, type, time, min_players, max_players, entry, prize, active };
+
+            let action = 'add';
+            // Use a hidden input to properly track if it's an edit or add
+            const formId = document.getElementById('matchSlotFormId').value;
+            if (formId === id) { // If the ID in the form matches the hidden formId, it's an update
+                action = 'update';
+            }
+
+
+            const result = await makeAdminApiRequest('/api/admin/match_slots', 'POST', { action, id, data: slotData });
+            await openModal(result.message);
+            if (result.success) {
+                clearMatchSlotForm();
+                fetchMatchSlots(); // Refresh table and dropdown
+            }
+        };
+
+        window.editMatchSlot = (id, type, time, min_players, max_players, entry, prize, active) => {
+            document.getElementById('matchSlotFormId').value = id; // Set hidden ID for update logic
+            document.getElementById('slotId').value = id;
+            document.getElementById('slotType').value = type;
+            document.getElementById('slotTime').value = time;
+            document.getElementById('minPlayers').value = min_players;
+            document.getElementById('maxPlayers').value = max_players;
+            document.getElementById('entryFee').value = entry;
+            document.getElementById('slotPrize').value = prize;
+            document.getElementById('slotActive').checked = active;
+            document.getElementById('slotId').readOnly = true; // Prevent ID change when editing
+        };
+
+        window.deleteMatchSlot = async (id) => {
+            const confirmed = await openModal(`Are you sure you want to delete match slot: ${id}? This action cannot be undone.`, 'confirm_cancel');
+            if (!confirmed) return;
+            const result = await makeAdminApiRequest('/api/admin/match_slots', 'POST', { action: 'delete', id });
+            await openModal(result.message);
+            if (result.success) {
+                fetchMatchSlots(); // Refresh table and dropdown
+            }
+        };
+
+        window.clearMatchSlotForm = () => {
+            document.getElementById('matchSlotForm').reset();
+            document.getElementById('slotId').readOnly = false;
+            document.getElementById('matchSlotFormId').value = ''; // Clear hidden ID
+        };
+
+
+        // --- Schedule Item Management ---
+        window.fetchScheduleItems = async () => {
+            const tableBody = document.getElementById('scheduleItemsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-gray-600">Loading schedule items...</td></tr>`;
+            const result = await makeAdminApiRequest('/api/schedule_items', 'GET'); // Public endpoint, but called by admin UI
+            tableBody.innerHTML = '';
+
+            if (result.success && result.scheduleItems.length > 0) {
+                result.scheduleItems.forEach(item => {
+                    const row = `
+                        <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                            <td class="py-4 px-6 text-left">${item.order}</td>
+                            <td class="py-4 px-6 text-left">${item.time}</td>
+                            <td class="py-4 px-6 text-left">${item.description}</td>
+                            <td class="py-4 px-6 text-left">${item.notes || 'N/A'}</td>
+                            <td class="py-4 px-6 text-center whitespace-nowrap">
+                                <button onclick="editScheduleItem('${item.id}', ${item.order}, '${item.time}', '${item.description}', '${item.notes || ''}')" class="modern-btn !bg-blue-600 hover:!bg-blue-600 text-xs mr-2 py-2 px-4">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button onclick="deleteScheduleItem('${item.id}')" class="modern-btn !bg-red-600 hover:!bg-red-600 text-xs py-2 px-4">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-gray-600">No schedule items found or failed to load.</td></tr>`;
+                if (!result.success) {
+                    await openModal(result.message || 'Failed to load schedule items.');
+                }
+            }
+        };
+
+        window.saveScheduleItem = async (event) => {
+            event.preventDefault();
+            const id = document.getElementById('scheduleItemId').value;
+            const order = parseInt(document.getElementById('scheduleOrder').value);
+            const time = document.getElementById('scheduleTime').value;
+            const description = document.getElementById('scheduleDescription').value;
+            const notes = document.getElementById('scheduleNotes').value;
+
+            const itemData = { order, time, description, notes };
+
+            let action = id ? 'update' : 'add'; // Determine action based on presence of ID
+            const result = await makeAdminApiRequest('/api/admin/schedule_items', 'POST', { action, id, data: itemData });
+            await openModal(result.message);
+            if (result.success) {
+                clearScheduleItemForm();
+                fetchScheduleItems();
+            }
+        };
+
+        window.editScheduleItem = (id, order, time, description, notes) => {
+            document.getElementById('scheduleItemId').value = id;
+            document.getElementById('scheduleOrder').value = order;
+            document.getElementById('scheduleTime').value = time;
+            document.getElementById('scheduleDescription').value = description;
+            document.getElementById('scheduleNotes').value = notes;
+        };
+
+        window.deleteScheduleItem = async (id) => {
+            const confirmed = await openModal(`Are you sure you want to delete this schedule item? This action cannot be undone.`, 'confirm_cancel');
+            if (!confirmed) return;
+            const result = await makeAdminApiRequest('/api/admin/schedule_items', 'POST', { action: 'delete', id });
+            await openModal(result.message);
+            if (result.success) {
+                fetchScheduleItems();
+            }
+        };
+
+        window.clearScheduleItemForm = () => {
+            document.getElementById('scheduleItemForm').reset();
+            document.getElementById('scheduleItemId').value = ''; // Clear hidden ID
+        };
+
+
+        // --- Prize Item Management ---
+        window.fetchPrizeItems = async () => {
+            const tableBody = document.getElementById('prizeItemsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-600">Loading prize items...</td></tr>`;
+            const result = await makeAdminApiRequest('/api/prize_items', 'GET'); // Public endpoint, but called by admin UI
+            tableBody.innerHTML = '';
+
+            if (result.success && result.prizeItems.length > 0) {
+                result.prizeItems.forEach(item => {
+                    const row = `
+                        <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                            <td class="py-4 px-6 text-left">${item.order}</td>
+                            <td class="py-4 px-6 text-left">${item.matchType}</td>
+                            <td class="py-4 px-6 text-left">${item.entryFee || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${item.totalPlayersExample || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${item.totalFee || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${item.prizePool || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${item.prizeDistribution || 'N/A'}</td>
+                            <td class="py-4 px-6 text-center whitespace-nowrap">
+                                <button onclick="editPrizeItem('${item.id}', ${item.order}, '${item.matchType}', '${item.entryFee || ''}', '${item.totalPlayersExample || ''}', '${item.totalFee || ''}', '${item.prizePool || ''}', '${item.prizeDistribution || ''}')" class="modern-btn !bg-blue-600 hover:!bg-blue-600 text-xs mr-2 py-2 px-4">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button onclick="deletePrizeItem('${item.id}')" class="modern-btn !bg-red-600 hover:!bg-red-600 text-xs py-2 px-4">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-600">No prize items found or failed to load.</td></tr>`;
+                if (!result.success) {
+                    await openModal(result.message || 'Failed to load prize items.');
+                }
+            }
+        };
+
+        window.savePrizeItem = async (event) => {
+            event.preventDefault();
+            const id = document.getElementById('prizeItemId').value;
+            const order = parseInt(document.getElementById('prizeOrder').value);
+            const matchType = document.getElementById('prizeMatchType').value;
+            const entryFee = document.getElementById('entryFeeCol').value;
+            const totalPlayersExample = document.getElementById('totalPlayersExample').value;
+            const totalFee = document.getElementById('totalFeeCol').value;
+            const prizePool = document.getElementById('prizePoolCol').value;
+            const prizeDistribution = document.getElementById('prizeDistributionContent').value;
+
+            const itemData = { order, matchType, entryFee, totalPlayersExample, totalFee, prizePool, prizeDistribution };
+
+            let action = id ? 'update' : 'add';
+            const result = await makeAdminApiRequest('/api/admin/prize_items', 'POST', { action, id, data: itemData });
+            await openModal(result.message);
+            if (result.success) {
+                clearPrizeItemForm();
+                fetchPrizeItems();
+            }
+        };
+
+        window.editPrizeItem = (id, order, matchType, entryFee, totalPlayersExample, totalFee, prizePool, prizeDistribution) => {
+            document.getElementById('prizeItemId').value = id;
+            document.getElementById('prizeOrder').value = order;
+            document.getElementById('prizeMatchType').value = matchType;
+            document.getElementById('entryFeeCol').value = entryFee;
+            document.getElementById('totalPlayersExample').value = totalPlayersExample;
+            document.getElementById('totalFeeCol').value = totalFee;
+            document.getElementById('prizePoolCol').value = prizePool;
+            document.getElementById('prizeDistributionContent').value = prizeDistribution;
+        };
+
+        window.deletePrizeItem = async (id) => {
+            const confirmed = await openModal(`Are you sure you want to delete this prize item? This action cannot be undone.`, 'confirm_cancel');
+            if (!confirmed) return;
+            const result = await makeAdminApiRequest('/api/admin/prize_items', 'POST', { action: 'delete', id });
+            await openModal(result.message);
+            if (result.success) {
+                fetchPrizeItems();
+            }
+        };
+
+        window.clearPrizeItemForm = () => {
+            document.getElementById('prizeItemForm').reset();
+            document.getElementById('prizeItemId').value = '';
+        };
+
+        // --- Tournament Registration Management (Existing, updated to use dynamic match list) ---
+
+        window.populateMatchDropdown = (matchSlots) => {
+            const matchToUpdateSelect = document.getElementById('matchToUpdate');
+            matchToUpdateSelect.innerHTML = '<option value="">-- Select a Match --</option>';
+            if (matchSlots && matchSlots.length > 0) {
+                matchSlots.forEach(match => {
+                    // Only show active matches that are not yet completed
+                    const now = new Date();
+                    const [hours, minutes] = match.time.split(':').map(Number);
+                    const matchDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+                    // Consider a match completed if its scheduled time plus 1 hour has passed
+                    const completionTime = new Date(matchDateTime.getTime() + 60 * 60 * 1000); 
+
+                    if (match.active && now < completionTime) { // Only show active and not-yet-completed matches
+                        matchToUpdateSelect.insertAdjacentHTML('beforeend', `<option value="${match.id}">${match.time} - ${match.type}</option>`);
+                    }
+                });
+            }
+            if (matchToUpdateSelect.options.length <= 1) { // Only default option
+                matchToUpdateSelect.innerHTML = '<option value="">-- No active matches --</option>';
+            }
+        };
+
+
+        window.fetchAllRegistrationsForAdmin = async () => { 
+            const tableBody = document.getElementById('allRegistrationsTableBody');
+            if (!tableBody) {
+                console.error("Table body for all registrations not found.");
+                return;
+            }
+            tableBody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-gray-600">Loading registrations...</td></tr>`;
+
+            const result = await makeAdminApiRequest('/api/admin/get_all_registrations', 'GET');
+
+            tableBody.innerHTML = ''; // Clear loading message
+
+            if (result.success && result.registrations.length > 0) {
+                result.registrations.forEach(reg => {
+                    const teammatesHtml = reg.teammates && reg.teammates.length > 0
+                        ? reg.teammates.map(t => `${t.ign || 'N/A'} (${t.ffid || 'N/A'})`).join('<br>')
+                        : 'N/A';
+                    
+                    let displayStatus = (reg.status || 'unknown').replace(/_/g, ' ').toUpperCase();
+                    let statusClass = 'text-gray-400'; 
+                    if (reg.isCompleted) {
+                        displayStatus = 'COMPLETED';
+                        statusClass = 'status-completed';
+                    } else if (reg.status === 'canceled') {
+                        displayStatus = 'CANCELED';
+                        statusClass = 'status-canceled';
+                    } else if (reg.status === 'registered') {
+                        displayStatus = 'ACTIVE';
+                        statusClass = 'status-active';
+                    }
+
+                    const row = `
+                        <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                            <td class="py-4 px-6 text-left break-all text-sm">${reg.userId}</td>
+                            <td class="py-4 px-6 text-left break-all text-sm">${reg.email || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${reg.matchType}</td>
+                            <td class="py-4 px-6 text-left">${reg.matchTime}</td>
+                            <td class="py-4 px-6 text-left font-bold text-lg">${reg.slotNumber || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left">${reg.iglIGN || 'N/A'} / ${reg.iglFFID || 'N/A'}</td>
+                            <td class="py-4 px-6 text-left text-sm">${teammatesHtml}</td>
+                            <td class="py-4 px-6 text-left font-semibold ${statusClass}">${displayStatus}</td>
+                            <td class="py-4 px-6 text-left text-sm">${reg.timestamp}</td>
+                            <td class="py-4 px-6 text-left">
+                                <input type="text" value="${reg.roomCode}" id="roomCode_${reg.id}" class="w-full">
+                            </td>
+                            <td class="py-4 px-6 text-left">
+                                <input type="text" value="${reg.roomPassword}" id="roomPassword_${reg.id}" class="w-full">
+                            </td>
+                            <td class="py-4 px-6 text-center whitespace-nowrap">
+                                <button onclick="updateMatchDetails('${reg.id}')" class="modern-btn !bg-blue-600 hover:!bg-blue-600 text-xs mb-1 py-2 px-4">
+                                    <i class="fas fa-edit"></i> Update Details
+                                </button>
+                                <button onclick="adminCancelRegistration('${reg.id}', '${reg.userId}', '${reg.status}', ${reg.isCompleted})" class="modern-btn !bg-red-600 hover:!bg-red-600 text-xs mr-2 py-2 px-4" ${reg.status === 'canceled' || reg.isCompleted ? 'disabled' : ''}>
+                                    <i class="fas fa-times-circle"></i> Cancel
+                                </button>
+                                <button onclick="adminDeleteRegistration('${reg.id}', '${reg.userId}')" class="modern-btn !bg-gray-700 hover:!bg-gray-700 text-xs py-2 px-4">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-gray-600">No registrations found or failed to load.</td></tr>`;
+                if (!result.success) {
+                    await openModal(result.message || "Failed to load all registrations.");
+                }
+            }
+        }
+
+        window.updateMatchDetails = async (registrationId) => { 
+            const roomCode = document.getElementById(`roomCode_${registrationId}`).value;
+            const roomPassword = document.getElementById(`roomPassword_${registrationId}`).value;
+
+            const result = await makeAdminApiRequest('/api/admin/update_match_details', 'POST', {
+                registrationId: registrationId,
+                roomCode: roomCode,
+                roomPassword: roomPassword
+            });
+            await openModal(result.message);
+            if (result.success) {
+                fetchAllRegistrationsForAdmin(); 
+            }
+        }
+
+        window.updateBatchMatchDetails = async (event) => {
+            event.preventDefault();
+            const matchToUpdateSelect = document.getElementById('matchToUpdate');
+            const batchRoomCodeInput = document.getElementById('batchRoomCode');
+            const batchRoomPasswordInput = document.getElementById('batchRoomPassword');
+
+            const matchId = matchToUpdateSelect.value;
+            const roomCode = batchRoomCodeInput.value;
+            const roomPassword = batchRoomPasswordInput.value;
+
+            if (!matchId) {
+                await openModal('Please select a match from the dropdown.');
+                return;
+            }
+
+            const confirmed = await openModal(`Are you sure you want to update Room Code and Password for ALL registrations of match "${matchId}"?`, 'confirm_cancel');
+            if (!confirmed) return;
+
+            const result = await makeAdminApiRequest('/api/admin/update_match_room_details', 'POST', {
+                matchId: matchId,
+                roomCode: roomCode,
+                roomPassword: roomPassword
+            });
+            await openModal(result.message);
+            if (result.success) {
+                document.getElementById('updateMatchRoomDetailsForm').reset();
+                fetchAllRegistrationsForAdmin(); 
+            }
+        }
+
+        window.adminCancelRegistration = async (registrationId, userId, currentStatus, isCompleted) => { 
+            if (currentStatus === 'canceled' || isCompleted) { 
+                await openModal('This registration is already canceled or completed and cannot be canceled.');
+                return;
+            }
+            const confirmed = await openModal('Are you sure you want to CANCEL this registration? This will mark it as canceled and release the slot.', 'confirm_cancel');
+            if (!confirmed) return;
+
+            const result = await makeAdminApiRequest('/api/update_registration_status', 'POST', { registrationId, userId, status: 'canceled' });
+            await openModal(result.message);
+            if (result.success) {
+                fetchAllRegistrationsForAdmin(); // Refresh the table
+            }
+        }
+
+        window.adminDeleteRegistration = async (registrationId, userId) => { 
+            const confirmed = await openModal('Are you sure you want to PERMANENTLY DELETE this registration? This action cannot be undone.', 'confirm_cancel');
+            if (!confirmed) return;
+
+            const result = await makeAdminApiRequest('/api/delete_registration', 'POST', { registrationId, userId });
+            await openModal(result.message);
+            if (result.success) {
+                fetchAllRegistrationsForAdmin(); // Refresh the table
+            }
+        }
+
+
+        // --- Auth State Listener ---
+        onAuthStateChanged(auth, async (user) => {
+            const loadingScreen = document.getElementById('loadingScreen');
+            const mainContent = document.getElementById('mainContent');
+            const loggedInEmailSpan = document.getElementById('loggedInEmail');
+            const loggedInUserIdSpan = document.getElementById('loggedInUserId');
+            const logoutButton = document.getElementById('logoutButton');
+
+            if (!loadingScreen || !mainContent || !loggedInEmailSpan || !loggedInUserIdSpan || !logoutButton) {
+                console.error("Critical DOM elements not found on admin_panel.html.");
+                await openModal('Critical elements not found. Page cannot load correctly.');
+                window.location.href = '/'; 
+                return;
+            }
+
+            if (user) {
+                // Ensure this UID matches the ADMIN_UID in app.py exactly
+                // The hardcoded ID here should match your actual admin UID in Firebase.
+                // It's safer to have app.py compare against a server-side env var for ADMIN_UID.
+                // The frontend just needs to send its 'user.uid'.
+                const expectedAdminUID = 'e2vzNJEFhoVk0l1v4MtCp6OHHn03'; // REPLACE with your actual ADMIN_UID
+
+                if (user.uid === expectedAdminUID) { 
+                    adminUserId = user.uid; // Store admin UID for API calls
+                    loggedInEmailSpan.textContent = user.email;
+                    loggedInUserIdSpan.textContent = user.uid;
+                    logoutButton.onclick = async () => {
+                        await signOut(auth);
+                        window.location.href = '/'; 
+                    };
+
+                    mainContent.classList.remove('hidden');
+                    loadingScreen.classList.add('hidden');
+                    
+                    // Initial fetches for all dynamic content and registrations
+                    fetchWebsiteContent();
+                    fetchMatchSlots(); // This will also populate the match dropdown for batch updates
+                    fetchScheduleItems();
+                    fetchPrizeItems();
+                    fetchAllRegistrationsForAdmin(); 
+
+                } else {
+                    await openModal('You are not authorized to access the admin panel. Redirecting to home page.', 'ok');
+                    window.location.href = '/';
+                }
+            } else {
+                await openModal('You must be logged in to access the admin panel. Redirecting to home page.', 'ok');
+                window.location.href = '/';
+            }
+        });
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('createUserForm')?.addEventListener('submit', window.createUser);
+            document.getElementById('updatePasswordForm')?.addEventListener('submit', window.updatePassword);
+            document.getElementById('deleteUserForm')?.addEventListener('submit', window.deleteUser);
+            document.getElementById('updateMatchRoomDetailsForm')?.addEventListener('submit', window.updateBatchMatchDetails); 
+
+            // New form listeners for dynamic content management
+            document.getElementById('websiteContentForm')?.addEventListener('submit', window.updateWebsiteContent);
+            document.getElementById('matchSlotForm')?.addEventListener('submit', window.saveMatchSlot);
+            document.getElementById('scheduleItemForm')?.addEventListener('submit', window.saveScheduleItem);
+            document.getElementById('prizeItemForm')?.addEventListener('submit', window.savePrizeItem);
+        });
+    </script>
+</body>
+</html>

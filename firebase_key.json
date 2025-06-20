@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "tournaments-a652c",
+  "private_key_id": "09b72fc4f8c0ea0fdc912b254afa1ddab15e1ff6",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCshTbD3X+4hcRl\nhaMns3LWrV/zYOzYzj9LSfh9Vdj3sjmfjyzFMmIviEP9wNgFzuhw1ZJUxcU+TnZs\nHzjFc9Hbef79zWUO5fNUKUAFgSNeapsu/A8fjNnRKnkLgFCKAIDgFhBUdrFAevE+\nGAdWptWzP8E9AWlcOk3fb5As4/oXERdwWFcHQHFjz908Twj5tcz1EGt57I4mHufT\nW4HHIQSyKiMN8OciBB2z7DEDv2MNCHOazQcIOSCb+7pXvyUlbbg5ZdcZxT64mfUE\nNHRFyNrmed91IeWtX6b2w1j3DITzPdSXh56e7r48JNcAUwT94T9F+ob0dvnZptim\nLj+BTjLnAgMBAAECggEAC7qMxBkhb0KM3RgORQsyofysesfaoky3Sd+QCLlW5FQW\nDc52jTuFKFUbxjsflJmB/PXQGnpNlBRSgbxHqEjc+g5bsxaNKcuhVNXvF9C1PlyC\nC1owjwUM4+b+zrTdBNzO5i0p1Awztb4F+6I3kYELI0IQ2ZxodNAz7h5QD3U6UeoH\nY0ulm7o1N3/emKCJCqluvy/KHj8cZhNvV3KXvmFJhEaVNHJzkDgebkPf4olrhXJZ\n0ASq2BjrVt1226FXEQsijtFLBrO5lKK+kvTVNI6smyllWl2fzAWJ4xsxYlXTi/DP\nJKTX/u0Zoo13Bt748yBFzbTqPaNNxUC0xm8Jcxjq6QKBgQDjdO4t9t0utu28+Hfv\nUQZVdh9qXvkIcWeyeyIwTgFRtFqEOEOR42V8WnJOwMdOhAT6EkAX1j0J3fZlnebz\n7VMd+2jECulEHYSzBnZa8k+h9mJZ0/xxkswKwrYsdOS6fwEnr0vnxugZsWGoghT3\nvD5lQ13x8nnnNWsXl0eFGb/5DwKBgQDCK3Jh3hg5hxmueLF0xkb8gIxSbwbKcUyh\nV4nGoTLH5vdTDA0dA1eazlrgiwCyCF/hKi2trdF88Ss9ZJh2B9tsMWn+SZ+aobq4\n27u74OHe/4w3alVkYYRNl/5SXvrHrkbl4OiCI+R7IqxWfiCk4USRjtoQbCqrlsow\nSX1UcHC4qQKBgQDW8Qme3/j2CyGwALD9svikTAK191eoNdqDXD7bnOs8NY2QAsc/\nlr6xe5sndp8hQDqfwh1VKTv3FgygzE2SVsPDwm+nSpRSrP5YWxP/L5o2+GjKcDvP\na6RrysJyUmhPIHOL9+hn95wfo3Mg1QRRc08XTEj7uWKfLeism2WXjtTN2wKBgAup\nUFVQYWQTGRfBZ+b7gYfosITC5kWCSHfoKf4j8EjRNklmj+MOMFS7z/lsX75RgnCj\nd9rWdZ5rXY1yXTW5gxQcY6FCCrPewrgXek7uUqJx9pndaQN+V9PRLRUFX0pezSNB\nPrWSMkay7mbDbHJ6lQOo8K/Lz0Q+6iW8RCquFhcBAoGAf1RqdGIMHP1qyGZitEch\nYCnoenMg7i6u7BZGLvp0iCu+4ffGtsS682gr5LaonMnVjNr5wCKqgVm3Cx67r943\nJoIzivij/KHvY6o0DF7dVodB1SQ8jP3iPZcUMjTlfJcOFvSffVfW4uRNQi1qJSIu\n9H+pdwmqjXJ0FdJPfulxiCQ=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@tournaments-a652c.iam.gserviceaccount.com",
+  "client_id": "113535534751410277706",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40tournaments-a652c.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
