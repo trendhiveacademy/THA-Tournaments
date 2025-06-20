@@ -1058,34 +1058,42 @@
     // ===== DYNAMIC CONTENT DISPLAY FUNCTIONS =====
 
     const fetchAndDisplayWebsiteContent = async () => {
-        const rulesContentDiv = document.getElementById('rulesContent');
-        const contactContentDiv = document.getElementById('contactContent');
+    const rulesContentDiv = document.getElementById('rulesContent');
+    const contactContentDiv = document.getElementById('contactContent');
 
-        rulesContentDiv.innerHTML = '<p class="text-center text-gray-600">Loading rules...</p>';
-        contactContentDiv.innerHTML = '<p class="text-center text-gray-600">Loading contact information...</p>';
+    rulesContentDiv.innerHTML = '<p class="text-center text-gray-600">Loading rules...</p>';
+    contactContentDiv.innerHTML = '<p class="text-center text-gray-600">Loading contact information...</p>';
 
-        try {
-  const response = await fetch('/api/configs/website_content');
-  if (!response.ok) {
-    throw new Error(`Server returned status ${response.status}`);
-  }
-  const result = await response.json();
+    try {
+        const response = await fetch('/api/configs/website_content');
 
-  if (result.success && result.content) {
-    rulesContentDiv.innerHTML = result.content.rules ? result.content.rules.replace(/\n/g, '<br>') : 'No rules yet.';
-    contactContentDiv.innerHTML = result.content.contact ? result.content.contact.replace(/\n/g, '<br>') : 'No contact info yet.';
-  } else {
-    rulesContentDiv.innerHTML = 'Failed to load rules.';
-    contactContentDiv.innerHTML = 'Failed to load contact.';
-    await openModal(result.message || "No content returned.");
-  }
-} catch (error) {
-  console.error('Error fetching website content:', error);
-  rulesContentDiv.innerHTML = 'Error loading rules.';
-  contactContentDiv.innerHTML = 'Error loading contact.';
-  await openModal("Backend error: " + error.message);
-}
+        if (!response.ok) {
+            const text = await response.text();
+            console.error("Non-JSON Response:", text);
+            throw new Error(`Server returned ${response.status}`);
+        }
 
+        const result = await response.json();
+
+        if (result.success && result.content) {
+            rulesContentDiv.innerHTML = result.content.rules
+                ? result.content.rules.replace(/\n/g, '<br>')
+                : 'No rules yet.';
+            contactContentDiv.innerHTML = result.content.contact
+                ? result.content.contact.replace(/\n/g, '<br>')
+                : 'No contact info yet.';
+        } else {
+            rulesContentDiv.innerHTML = 'Failed to load rules.';
+            contactContentDiv.innerHTML = 'Failed to load contact.';
+            await openModal(result.message || "No content returned.");
+        }
+    } catch (error) {
+        console.error('Error fetching website content:', error);
+        rulesContentDiv.innerHTML = 'Error loading rules.';
+        contactContentDiv.innerHTML = 'Error loading contact.';
+        await openModal("Backend error: " + error.message);
+    }
+};
 
     const fetchAndDisplayScheduleItems = async () => {
         const scheduleTableBody = document.getElementById('scheduleTableBody');
@@ -1225,7 +1233,7 @@ onAuthStateChanged(auth, (user) => {
         if (authButton) authButton.onclick = showLoginRegisterModal;
     }
 });
-<script>
+
     // ===== EVENT LISTENERS AND INITIAL LOAD =====
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('matchSelect').addEventListener('change', updateTeammateInputs);
