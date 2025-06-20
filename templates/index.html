@@ -789,7 +789,7 @@
         loadingMatchesMessage.classList.remove('hidden');
         noMatchesMessage.classList.add('hidden');
 
-        const response = await fetch('http://127.0.0.1:5000/api/match_slots');
+        const response = await fetch('/api/match_slots');
         const result = await response.json();
 
         loadingMatchesMessage.classList.add('hidden');
@@ -1031,7 +1031,7 @@
         document.getElementById('registerButton').disabled = true;
         document.getElementById('registerButton').textContent = 'Registering...';
 
-        const response = await fetch('http://127.0.0.1:5000/api/register_tournament', {
+        const response = await fetch('/api/register_tournament', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1064,7 +1064,7 @@
         contactContentDiv.innerHTML = '<p class="text-center text-gray-600">Loading contact information...</p>';
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/configs/website_content');
+            const response = await fetch('/api/configs/website_content');
             const result = await response.json();
 
             if (result.success && result.content) {
@@ -1093,7 +1093,7 @@
         noScheduleMessage.classList.add('hidden');
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/schedule_items');
+            const response = await fetch('/api/schedule_items');
             const result = await response.json();
 
             loadingScheduleMessage.classList.add('hidden');
@@ -1133,7 +1133,7 @@
         noPrizeMessage.classList.add('hidden');
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/prize_items');
+            const response = await fetch('/api/prize_items');
             const result = await response.json();
 
             loadingPrizeMessage.classList.add('hidden');
