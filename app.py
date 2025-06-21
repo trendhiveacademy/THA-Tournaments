@@ -244,6 +244,17 @@ def release_slot_in_memory(match_id, slot_number):
 
 
 # Function to initialize in-memory 'available_slots' from Firestore on app startup
+
+slots_initialized = False
+
+@app.before_request
+def initialize_slots_if_needed():
+    global slots_initialized
+    if not slots_initialized:
+        initialize_booked_slots_from_firestore_on_startup()
+        slots_initialized = True
+
+
 def initialize_booked_slots_from_firestore_on_startup():
     """
     Loads all active match slots from Firestore into the global 'available_slots' dictionary.
@@ -252,7 +263,7 @@ def initialize_booked_slots_from_firestore_on_startup():
     global available_slots
     print("\n--- Initializing in-memory match slots from Firestore ---")
     try:
-        slots_ref = db.collection('match_slots')
+        slots_ref = db.collection('match_slots').where('active', '==', True)
         docs = slots_ref.stream()
 
         available_slots.clear() # Clear existing slots to refresh
@@ -1280,14 +1291,16 @@ def get_all_registrations_api_admin():
 # =====================================================================
 # APPLICATION STARTUP
 # =====================================================================
-
+# Replace the slot initialization in __main__
 if __name__ == '__main__':
-    # Initialize in-memory match slots from Firestore when the application starts.
-    initialize_booked_slots_from_firestore_on_startup()
+    # Only initialize in development mode
+    if os.getenv('ENV') == 'development':
+        initialize_booked_slots_from_firestore_on_startup()
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
     # Run the Flask application
     # debug=True: Enables auto-reloading of Python code changes and debug tools.
     # host='0.0.0.0': Makes the server accessible externally.
     # port=5000: The port on which the Flask server will listen.
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    #app.run(debug=True, host='0.0.0.0', port=5000)
 
