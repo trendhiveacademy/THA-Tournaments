@@ -658,7 +658,7 @@
         if (!confirmed) return;
 
         try {
-            fetch(`${window.location.origin}/api/update_registration_status`, {`
+            fetch(`${window.location.origin}/api/update_registration_status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
