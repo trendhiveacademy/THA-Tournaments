@@ -921,7 +921,7 @@
             }
 
             try {
-                const response = await fetch(`http://127.0.0.1:5000${endpoint}`, options);
+                const response = await fetch(`${window.location.origin}${endpoint}`, options);
                 const result = await response.json();
                 return result;
             } catch (error) {
