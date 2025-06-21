@@ -608,36 +608,55 @@ def register_tournament():
 
 @app.route('/api/get_registrations', methods=['GET'])
 def get_registrations():
-    """Fetches registrations for the current user from Firestore."""
     user_id = request.args.get('userId')
     if not user_id:
         return jsonify({"success": False, "message": "User ID is required to fetch registrations."}), 400
 
     try:
-        registrations_ref = db.collection('registrations').where('userId', '==', user_id).order_by('timestamp', direction=firestore.Query.DESCENDING).get()
+        registrations_ref = db.collection('registrations')\
+                              .where('userId', '==', user_id)\
+                              .order_by('timestamp', direction=firestore.Query.DESCENDING)\
+                              .get()
+
         registrations_list = []
         for doc in registrations_ref:
             data = doc.to_dict()
             data['id'] = doc.id
-            data['timestamp'] = format_timestamp(data.get('timestamp')) # Use helper for formatting
-            data['isCompleted'] = is_match_completed_server_side(data.get('matchTime', '')) # Server-side check
+
+            # Safe timestamp formatting
+            try:
+                data['timestamp'] = format_timestamp(data.get('timestamp'))
+            except:
+                data['timestamp'] = 'Invalid timestamp'
+
+            # Safe match completion check
+            try:
+                data['isCompleted'] = is_match_completed_server_side(data.get('matchTime', ''))
+            except:
+                data['isCompleted'] = False
+
             data['roomCode'] = data.get('roomCode', '')
             data['roomPassword'] = data.get('roomPassword', '')
-            
-            # Add 12-hour format for display if matchTime exists
-            if 'matchTime' in data:
-                data['matchTime12hr'] = format_time_to_12hr_ist(data['matchTime'])
+
+            # Match time formatting
+            match_time = data.get('matchTime')
+            if match_time:
+                try:
+                    data['matchTime12hr'] = format_time_to_12hr_ist(match_time)
+                except:
+                    data['matchTime12hr'] = 'N/A'
             else:
                 data['matchTime12hr'] = 'N/A'
 
             registrations_list.append(data)
-        
+
         return jsonify({"success": True, "registrations": registrations_list}), 200
 
     except Exception as e:
         print(f"Error fetching user registrations: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Failed to fetch registrations: {str(e)}"}), 500
+
 
 @app.route('/api/get_match_participants', methods=['GET'])
 def get_match_participants():
