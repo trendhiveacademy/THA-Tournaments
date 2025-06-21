@@ -543,7 +543,7 @@
         }
 
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/get_registrations?userId=${currentUser.uid}`);
+            const response = await fetch(\${window.location.origin}/api/get_registrations?userId=${currentUser.uid}`)`
             const result = await response.json();
 
             if (result.success && result.registrations.length > 0) {
@@ -624,7 +624,7 @@
         await openModal('<p class="text-center">Loading participants...</p>');
         
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/get_match_participants?matchId=${matchId}`);
+            const response = await fetch(\${window.location.origin}/api/get_match_participants?matchId=${matchId}`)`
             const result = await response.json();
             
             let content = `<h3 class="text-xl font-bold mb-4">Match ID: ${matchId}</h3>`;
@@ -658,7 +658,7 @@
         if (!confirmed) return;
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/update_registration_status', {
+            fetch(\${window.location.origin}/api/update_registration_status`, {`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -683,7 +683,7 @@
         if (!confirmed) return;
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/delete_registration', {
+            const response = await fetch(\${window.location.origin}/api/delete_registration?userId=${userId}&matchId=${matchId}`, {`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ registrationId, userId }),
