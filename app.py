@@ -50,50 +50,36 @@ db = None
 
 try:
     firebase_service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON')
-    
+
     if not firebase_service_account_json:
         raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_JSON is missing from environment.")
-    
-    # Debug: Print first 50 chars to verify format
-    print(f"FIREBASE_SERVICE_ACCOUNT_KEY_JSON (first 50 chars): {firebase_service_account_json[:50]}...")
-    
-    # Parse JSON
-    try:
-        service_account_info = json.loads(firebase_service_account_json)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON format: {str(e)}")
-    
-    # Fix private key formatting
+
+    print("🔐 Raw key loaded, parsing JSON...")
+
+    service_account_info = json.loads(firebase_service_account_json)
+
+    # Replace \\n with real newlines
     if 'private_key' in service_account_info:
-        # Replace escaped newlines with actual newlines
-        service_account_info['private_key'] = service_account_info['private_key'].replace('\\\\n', '\n')
+        service_account_info['private_key'] = service_account_info['private_key'].replace('\\n', '\n')
         print("✅ Private key formatting fixed")
-    
-    # Print current server time to check for clock skew
-    from datetime import datetime
-    print(f"CURRENT SERVER TIME: {datetime.utcnow().isoformat()}Z")
-    
-    cred = credentials.Certificate(service_account_info)
-    firebase_admin.initialize_app(cred)
+
+    print(f"⏱ Current UTC Time: {datetime.utcnow().isoformat()}Z")
+
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(service_account_info)
+        firebase_admin.initialize_app(cred)
+        print("✅ Firebase Admin SDK initialized")
+
     db = firestore.client()
-    print(f"✅ Firestore client initialized: db = {db}")
-    print("Firebase Admin SDK initialized successfully.")
-    
-    # Test Firestore connection
-    try:
-        test_ref = db.collection('test_connection').document('probe')
-        test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
-        test_ref.delete()
-        print("🔥 Firestore connection test SUCCESS")
-    except Exception as e:
-        print(f"🚨 Firestore connection FAILED: {e}")
-        traceback.print_exc()
-    
+
+    # Test the connection
+    test_ref = db.collection('test_connection').document('probe')
+    test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
+    test_ref.delete()
+    print("🔥 Firestore connection test SUCCESS")
+
 except Exception as e:
-    print(f"FATAL ERROR initializing Firebase: {e}")
-    traceback.print_exc()
-    print("TIP: Ensure your environment variable contains VALID service account JSON")
-    exit(1)
+    print(f"🚨 Firebase initialization failed: {e}")
 # =====================================================================
 # GLOBAL VARIABLES (for in-memory caching and ADMIN_UID)
 # =====================================================================
