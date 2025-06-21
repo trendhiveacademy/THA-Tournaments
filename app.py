@@ -45,7 +45,6 @@ CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for pro
 # =====================================================================
 # IMPORTANT: Configure the path to your Firebase service account key JSON file.
 # This should be downloaded from Firebase Console -> Project settings -> Service accounts.
-import json
 
 db = None
 
@@ -58,14 +57,17 @@ try:
     # Debug: Print first 50 chars to verify format
     print(f"FIREBASE_SERVICE_ACCOUNT_KEY_JSON (first 50 chars): {firebase_service_account_json[:50]}...")
     
-    # Validate JSON structure
+    # Parse JSON
     try:
         service_account_info = json.loads(firebase_service_account_json)
-        required_keys = ["type", "project_id", "private_key_id", "private_key", "client_email"]
-        if not all(key in service_account_info for key in required_keys):
-            raise ValueError("Service account JSON is missing required fields")
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON format in service account: {str(e)}")
+        raise ValueError(f"Invalid JSON format: {str(e)}")
+    
+    # Fix private key formatting
+    if 'private_key' in service_account_info:
+        # Replace escaped newlines with actual newlines
+        service_account_info['private_key'] = service_account_info['private_key'].replace('\\\\n', '\n')
+        print("✅ Private key formatting fixed")
     
     # Print current server time to check for clock skew
     from datetime import datetime
