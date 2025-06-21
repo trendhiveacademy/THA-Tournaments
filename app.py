@@ -47,26 +47,51 @@ CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for pro
 # This should be downloaded from Firebase Console -> Project settings -> Service accounts.
 import json
 
-db = None  # Initialize db as None
+db = None
+
 try:
     firebase_service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON')
-
+    
     if not firebase_service_account_json:
         raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_JSON is missing from environment.")
-
-    cred = credentials.Certificate(json.loads(firebase_service_account_json))
+    
+    # Debug: Print first 50 chars to verify format
+    print(f"FIREBASE_SERVICE_ACCOUNT_KEY_JSON (first 50 chars): {firebase_service_account_json[:50]}...")
+    
+    # Validate JSON structure
+    try:
+        service_account_info = json.loads(firebase_service_account_json)
+        required_keys = ["type", "project_id", "private_key_id", "private_key", "client_email"]
+        if not all(key in service_account_info for key in required_keys):
+            raise ValueError("Service account JSON is missing required fields")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON format in service account: {str(e)}")
+    
+    # Print current server time to check for clock skew
+    from datetime import datetime
+    print(f"CURRENT SERVER TIME: {datetime.utcnow().isoformat()}Z")
+    
+    cred = credentials.Certificate(service_account_info)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
     print(f"✅ Firestore client initialized: db = {db}")
     print("Firebase Admin SDK initialized successfully.")
-    print(f"🔍 FIREBASE_SERVICE_ACCOUNT_KEY_JSON is set: {bool(os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON'))}")
-
-
+    
+    # Test Firestore connection
+    try:
+        test_ref = db.collection('test_connection').document('probe')
+        test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
+        test_ref.delete()
+        print("🔥 Firestore connection test SUCCESS")
+    except Exception as e:
+        print(f"🚨 Firestore connection FAILED: {e}")
+        traceback.print_exc()
+    
 except Exception as e:
-    print(f"FATAL ERROR initializing Firebase Admin SDK: {e}")
-    print("Check that your environment variable contains the correct Firebase service account JSON.")
+    print(f"FATAL ERROR initializing Firebase: {e}")
+    traceback.print_exc()
+    print("TIP: Ensure your environment variable contains VALID service account JSON")
     exit(1)
-
 # =====================================================================
 # GLOBAL VARIABLES (for in-memory caching and ADMIN_UID)
 # =====================================================================
@@ -97,6 +122,9 @@ def is_admin(user_id):
     return user_id == ADMIN_UID
 
 def format_timestamp(timestamp_obj):
+    if timestamp_obj is None:
+        return "N/A"
+    # ... rest of your code ...
     """
     Formats a Firestore Timestamp object or datetime object into a readable string (IST).
     Handles potential timezone differences and ensures a consistent display format.
