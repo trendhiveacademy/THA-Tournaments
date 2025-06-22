@@ -1234,10 +1234,10 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('matchSelect').addEventListener('change', updateTeammateInputs);
 
         // Initial fetches for dynamic content
-        //fetchAndDisplayMatchSlots(); // This also populates matchSelect and `loadedMatchSlots`
-        //fetchAndDisplayWebsiteContent();
-        //fetchAndDisplayScheduleItems();
-        //fetchAndDisplayPrizeItems();
+        fetchAndDisplayMatchSlots(); // This also populates matchSelect and `loadedMatchSlots`
+        fetchAndDisplayWebsiteContent();
+        fetchAndDisplayScheduleItems();
+        fetchAndDisplayPrizeItems();
         
         // Clear timers when page is unloaded
         window.addEventListener('beforeunload', clearAllTimers);
