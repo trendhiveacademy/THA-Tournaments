@@ -1331,7 +1331,7 @@ if __name__ == '__main__':
     # Only initialize in development mode
     if os.getenv('ENV') == 'development':
         initialize_booked_slots_from_firestore_on_startup()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    
 
     # Run the Flask application
     # debug=True: Enables auto-reloading of Python code changes and debug tools.
