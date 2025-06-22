@@ -1327,8 +1327,8 @@ def get_all_registrations_api_admin():
 # APPLICATION STARTUP
 # =====================================================================
 # Replace the slot initialization in __main__
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+#if __name__ == '__main__':
+    #app.run(debug=True, host='0.0.0.0', port=5000)
     # Only initialize in development mode
     #if os.getenv('ENV') == 'development':
         #initialize_booked_slots_from_firestore_on_startup()
