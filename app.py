@@ -49,24 +49,10 @@ CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for pro
 db = None
 
 try:
-    firebase_service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_JSON')
-
-    if not firebase_service_account_json:
-        raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_JSON is missing from environment.")
-
-    print("🔐 Raw key loaded, parsing JSON...")
-
-    service_account_info = json.loads(firebase_service_account_json)
-
-    # Replace \\n with real newlines
-    if 'private_key' in service_account_info:
-        service_account_info['private_key'] = service_account_info['private_key'].replace('\\n', '\n')
-        print("✅ Private key formatting fixed")
-
-    print(f"⏱ Current UTC Time: {datetime.utcnow().isoformat()}Z")
+    print("🔐 Loading Firebase key from file...")
 
     if not firebase_admin._apps:
-        cred = credentials.Certificate(service_account_info)
+        cred = credentials.Certificate("firebase_key.json")
         firebase_admin.initialize_app(cred)
         print("✅ Firebase Admin SDK initialized")
 
