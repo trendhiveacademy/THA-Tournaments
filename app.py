@@ -329,6 +329,12 @@ def initialize_booked_slots_from_firestore_on_startup():
 # These routes simply serve the HTML files for your frontend.
 # =====================================================================
 
+@app.route('/test')
+def test():
+    return "✅ Flask is alive and working!"
+
+
+
 @app.route('/')
 def index():
     """Renders the main tournament page (index.html)."""
