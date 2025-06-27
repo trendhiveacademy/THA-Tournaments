@@ -338,8 +338,8 @@ def test():
 @app.route('/')
 def index():
     """Renders the main tournament page (index.html)."""
-    #return render_template('index.html')
-    return "✅ Root route test working!"
+    return render_template('index.html')
+    #return "✅ Root route test working!"
 
 @app.route('/admin_panel.html')
 def admin_panel_page():
