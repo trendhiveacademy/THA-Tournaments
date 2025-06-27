@@ -328,28 +328,25 @@ def initialize_booked_slots_from_firestore_on_startup():
 # FLASK ROUTES - Frontend Page Renderers
 # These routes simply serve the HTML files for your frontend.
 # =====================================================================
-
-@app.route('/test')
-def test():
-    return "✅ Flask is alive and working!"
-
-
-
 @app.route('/')
-def index():
+def ping():
+    return "✅ Tournament API is live."
+    
+#@app.route('/')
+#def index():
     """Renders the main tournament page (index.html)."""
-    return render_template('index.html')
+    #return render_template('index.html')
     #return "✅ Root route test working!"
 
-@app.route('/admin_panel.html')
-def admin_panel_page():
+#@app.route('/admin_panel.html')
+#def admin_panel_page():
     """Renders the admin panel page (admin_panel.html)."""
-    return render_template('admin_panel.html')
+   #return render_template('admin_panel.html')
 
-@app.route('/registered.html')
-def registered_page():
+#@app.route('/registered.html')
+#def registered_page():
     """Renders the user's registered matches page (registered.html)."""
-    return render_template('registered.html')
+    #return render_template('registered.html')
 
 # =====================================================================
 # YOUR EXISTING CUSTOM FLASK ROUTES (Frontend or other API) HERE
