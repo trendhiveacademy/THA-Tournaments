@@ -50,18 +50,27 @@ CORS(app, origins=["https://trendhiveacademy.github.io"])
 db = None
 
 try:
-    print("🔐 Loading Firebase key from file...")
+    firebase_key = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_JSON")
+
+    if not firebase_key:
+        raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY_JSON env variable missing!")
+
+    print("🔐 Raw key loaded from environment, parsing JSON...")
+
+    key_data = json.loads(firebase_key)
+    key_data["private_key"] = key_data["private_key"].replace("\\n", "\n")
+    print("✅ Private key formatting fixed")
 
     if not firebase_admin._apps:
-        cred = credentials.Certificate("firebase_key.json")
+        cred = credentials.Certificate(key_data)
         firebase_admin.initialize_app(cred)
         print("✅ Firebase Admin SDK initialized")
 
     db = firestore.client()
 
-    # Test the connection
-    test_ref = db.collection('test_connection').document('probe')
-    test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
+    # Test Firestore connection
+    test_ref = db.collection("test_connection").document("probe")
+    test_ref.set({"timestamp": firestore.SERVER_TIMESTAMP})
     test_ref.delete()
     print("🔥 Firestore connection test SUCCESS")
 
