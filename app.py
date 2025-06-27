@@ -39,7 +39,17 @@ app = Flask(__name__, template_folder='templates') # Explicitly specify template
 # This is crucial for Flask session security. Generate a long, random string.
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_very_long_and_complex_random_string_for_dev_purposes_change_this_in_prod_really_change_it')
 #CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for production.
-CORS(app, origins=["https://www.thatournaments.xyz", "https://trendhiveacademy.github.io"])
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://www.thatournaments.xyz",
+            "https://trendhiveacademy.github.io"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    }
+})
 
 # =====================================================================
 # FIREBASE INITIALIZATION
