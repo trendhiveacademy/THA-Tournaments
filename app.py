@@ -1331,7 +1331,19 @@ def get_all_registrations_api_admin():
 # =====================================================================
 # If you have other specific admin routes or functionalities,
 # copy them into this section.
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    if origin in ["https://www.thatournaments.xyz", "https://trendhiveacademy.github.io"]:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
 
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def options_handler(path):
+    return make_response('', 200)
 
 # =====================================================================
 # APPLICATION STARTUP
