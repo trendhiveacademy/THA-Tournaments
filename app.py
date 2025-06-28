@@ -11,7 +11,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, s
 from datetime import datetime, timedelta, timezone # Used for time calculations and timestamps
 from flask_cors import CORS # Required for handling Cross-Origin Resource Sharing
 from dotenv import load_dotenv # For loading environment variables from .env file
-
+from apscheduler.schedulers.background import BackgroundScheduler
 import os
 import traceback # For printing full tracebacks during debugging
 import requests # For Telegram notifications
@@ -76,6 +76,23 @@ try:
 
 except Exception as e:
     print(f"🚨 Firebase initialization failed: {e}")
+
+
+# =====================================================================
+
+# Add after app initialization
+if not scheduler.running:
+    scheduler.add_job(
+        mark_completed_matches,
+        'cron',
+        hour=3,  # Run daily at 3 AM IST
+        timezone=IST_TIMEZONE
+    )
+    scheduler.start()
+    print("Scheduled task started for daily match cleanup")
+
+
+
 # =====================================================================
 # GLOBAL VARIABLES (for in-memory caching and ADMIN_UID)
 # =====================================================================
@@ -165,29 +182,32 @@ def is_match_open_for_registration(match_time_str):
 def is_match_completed_server_side(match_time_str):
     """
     Determines if a match is considered 'completed' server-side.
-    Considered completed 1 hour after its scheduled time.
+    Now considers date in addition to time.
     """
     try:
         now_ist = datetime.now(IST_TIMEZONE)
-
-        match_hour, match_minute = map(int, match_time_str.split(':'))
-        match_datetime_ist = now_ist.replace(hour=match_hour, minute=match_minute, second=0, microsecond=0)
-
-        # If the match is scheduled for tomorrow or later, it's not completed today
-        if match_datetime_ist > now_ist + timedelta(hours=23): # Check for next day, adjust as needed
-            return False
         
-        # If the current time is before the match time today, it's not completed
+        # Create datetime object for the match (today at match time)
+        match_hour, match_minute = map(int, match_time_str.split(':'))
+        match_datetime_ist = now_ist.replace(
+            hour=match_hour, 
+            minute=match_minute, 
+            second=0, 
+            microsecond=0
+        )
+        
+        # If match time is in the future today, not completed
         if match_datetime_ist > now_ist:
             return False
-
-        # Match is considered completed 1 hour after its scheduled time
+        
+        # If current time is more than 1 hour past match time, completed
         completion_time_ist = match_datetime_ist + timedelta(hours=1)
         return now_ist >= completion_time_ist
+        
     except Exception as e:
-        print(f"Error checking match completion status for time '{match_time_str}': {e}")
+        print(f"Error checking match completion: {e}")
         traceback.print_exc()
-        return False # Default to not completed on error
+        return False
 
 def send_telegram_message(message, parse_mode="Markdown"):
     """Sends a message to the configured Telegram chat."""
@@ -216,19 +236,20 @@ def send_telegram_message(message, parse_mode="Markdown"):
 # and updated by admin actions.
 
 def get_next_available_slot(match_id):
-    """Finds the smallest available slot number for a given match_id in memory."""
+    """Finds smallest available slot number with date awareness"""
     if match_id not in available_slots:
-        print(f"Error: Match ID '{match_id}' not found in available_slots config.")
+        print(f"Error: Match ID '{match_id}' not found")
         return None
 
     slot_info = available_slots[match_id]
-    current_booked = slot_info.get('booked_slots', []) # Ensure 'booked_slots' key exists
-    total_allowed = slot_info['max_players'] # Use max_players for total capacity
+    current_booked = slot_info.get('booked_slots', [])
+    total_allowed = slot_info['max_players']
 
-    for i in range(1, total_allowed + 1):
-        if i not in current_booked:
-            return i
-    return None # No slots available
+    # Find first available slot
+    for slot_num in range(1, total_allowed + 1):
+        if slot_num not in current_booked:
+            return slot_num
+    return None  # No slots available
 
 def book_slot_in_memory(match_id, slot_number):
     """Marks a slot as booked in the in-memory `available_slots` dictionary."""
@@ -491,9 +512,16 @@ def get_website_content_api():
         return jsonify({"success": False, "message": "Internal error"}), 500
 
 
-
+# Add this BEFORE checking existing registrations
+mark_completed_matches()  # Ensure we have latest status
 @app.route('/api/register_tournament', methods=['POST'])
 def register_tournament():
+    match_time = registration_data.get('matchTime')
+    if not is_match_open_for_registration(match_time):
+        return jsonify({
+            "success": False,
+            "message": f"Registration for this match closed 20 minutes before start time"
+        }), 400
     """
     Handles new tournament registrations from users.
     Registers a user for a specific match slot, saves to Firestore, and sends Telegram message.
@@ -1290,6 +1318,48 @@ def update_single_registration_room_details():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 500
 
+#Last Day Update on 28th June..
+# =====================================================================
+# DAILY RESET FUNCTIONS
+# =====================================================================
+def reset_daily_slots():
+    """Resets in-memory slots and clears completed registrations daily"""
+    print("🔄 Starting daily reset of match slots...")
+    try:
+        global available_slots
+        
+        # Reset in-memory slots
+        for match_id in available_slots:
+            available_slots[match_id]['booked_slots'] = []
+        print("✅ In-memory slots reset")
+        
+        # Clear completed registrations
+        now_ist = datetime.now(IST_TIMEZONE)
+        registrations_ref = db.collection('registrations')
+        
+        # Find registrations for completed matches
+        for doc in registrations_ref.where('status', '==', 'registered').stream():
+            data = doc.to_dict()
+            match_time = data.get('matchTime')
+            
+            if match_time and is_match_completed_server_side(match_time):
+                # Delete or mark as completed based on preference
+                if data.get('autoDeleteOnCompletion', True):
+                    doc.reference.delete()
+                else:
+                    doc.reference.update({'status': 'completed'})
+        
+        print("✅ Completed registrations cleared")
+        
+        # Refresh in-memory state from Firestore
+        initialize_booked_slots_from_firestore_on_startup()
+        print("🔄 Slot memory refreshed from Firestore")
+        
+    except Exception as e:
+        print(f"❌ Daily reset failed: {e}")
+        traceback.print_exc()
+
+
 
 
 # =====================================================================
@@ -1297,14 +1367,22 @@ def update_single_registration_room_details():
 # =====================================================================
 # Replace the slot initialization in __main__
 #if __name__ == '__main__':
+    # Initialize scheduler
+    scheduler = BackgroundScheduler(timezone=IST_TIMEZONE)
+    # Schedule daily reset at 00:01 IST
+    scheduler.add_job(reset_daily_slots, 'cron', hour=0, minute=1)
+    scheduler.start()
+    print("⏰ Daily reset scheduler started")
+# =====================================================================
     #app.run(debug=True, host='0.0.0.0', port=5000)
     # Only initialize in development mode
     #if os.getenv('ENV') == 'development':
         #initialize_booked_slots_from_firestore_on_startup()
     
-
+# =====================================================================
     # Run the Flask application
     # debug=True: Enables auto-reloading of Python code changes and debug tools.
     # host='0.0.0.0': Makes the server accessible externally.
     # port=5000: The port on which the Flask server will listen.
     #app.run(debug=True, host='0.0.0.0', port=5000)
+# =====================================================================
