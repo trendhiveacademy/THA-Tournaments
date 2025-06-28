@@ -1089,7 +1089,7 @@ def manage_prize_items_api_admin():
 def admin_update_match_room_details_api_admin():
     """
     Admin: Updates the roomCode and roomPassword for ALL registrations
-    belonging to a specific matchId.
+    belonging to a specific matchId with proper batching and error handling.
     """
     try:
         data = request.json
@@ -1098,116 +1098,73 @@ def admin_update_match_room_details_api_admin():
         room_password = data.get('roomPassword', '')
         admin_user_id = data.get('adminUserId')
 
-        # Authentication check
-        if not is_admin(admin_user_id):
-            print(f"Unauthorized access attempt by {admin_user_id}. Expected: {ADMIN_UID}")
-            return jsonify({"success": False, "message": "Unauthorized access. Admin privileges required."}), 403
+        # SECURE ADMIN VERIFICATION
+        ADMIN_UID = os.environ.get('ADMIN_UID')
+        if admin_user_id != ADMIN_UID:
+            app.logger.warning(f"Unauthorized access attempt by {admin_user_id}")
+            return jsonify(success=False, message="Unauthorized access"), 403
 
         if not match_id:
-            print("Error: Match ID is missing in the request for batch update.")
-            return jsonify({"success": False, "message": "Match ID is required for batch update."}), 400
+            return jsonify(success=False, message="Match ID is required"), 400
 
-        # Debugging prints (keep for now, remove in production)
-        print(f"\n--- DEBUG: Entering admin_update_match_room_details (Batch Update) ---")
-        print(f"DEBUG: Received match_id: '{match_id}' (Type: {type(match_id)})")
-        print(f"DEBUG: Received room_code: '{room_code}' (Type: {type(room_code)})")
-        print(f"DEBUG: Received room_password: '{room_password}' (Type: {type(room_password)})")
+        app.logger.info(f"Batch update for match: {match_id}")
 
-        # Ensure match_id is a string. This is crucial for Firestore queries.
-        if not isinstance(match_id, str):
-            error_msg = f"Match ID received is not a string. Type: {type(match_id)}. Value: {match_id}"
-            print(f"DEBUG: ERROR: {error_msg}")
-            return jsonify({"success": False, "message": error_msg}), 400
-
+        # FIXED: Use collection group query to find all registrations
+        registrations_ref = db.collection_group('registrations') \
+            .where('matchId', '==', match_id) \
+            .where('status', '==', 'registered') \
+            .where('isCompleted', '==', False)
+        
         updated_count = 0
-        
-        # Query registrations where matchId matches.
-        # Ensure your Firestore structure and index supports this query.
-        # If your registrations are stored as subcollections, you might need to use db.collection_group('registrations').
-        print(f"DEBUG: Executing Firestore query: db.collection('registrations').where('matchId', '==', '{match_id}').get()")
-        registrations_query_results = db.collection('registrations').where('matchId', '==', match_id).get()
-
-        if not registrations_query_results:
-            print(f"DEBUG: No registrations found for match ID '{match_id}' during query execution.")
-            return jsonify({"success": False, "message": f"No registrations found for match ID '{match_id}' to update."}), 404
-
         batch = db.batch()
-        found_registrations = False
+        batch_count = 0
+        MAX_BATCH_SIZE = 400  # Stay under 500 limit
         
-        print(f"DEBUG: Iterating through {len(registrations_query_results)} potential registration documents...")
-        for doc_snapshot in registrations_query_results:
-            found_registrations = True
-            
-            print(f"DEBUG:   Current doc_snapshot ID: {doc_snapshot.id} (Type: {type(doc_snapshot)})")
-            
-            reg_data = None
-            try:
-                reg_data = doc_snapshot.to_dict()
-                print(f"DEBUG:     Successfully converted doc_snapshot to dict. Type: {type(reg_data)}")
-            except Exception as e_to_dict:
-                print(f"DEBUG: ERROR: Failed to convert doc_snapshot to dictionary for ID {doc_snapshot.id}: {e_to_dict}")
-                traceback.print_exc()
-                continue
-
-            if not isinstance(reg_data, dict):
-                print(f"DEBUG:   WARNING: Document {doc_snapshot.id} data is NOT a dictionary after to_dict() (Type: {type(reg_data)}). Skipping.")
-                continue 
-            
-            if 'status' not in reg_data:
-                print(f"DEBUG:   WARNING: Document {doc_snapshot.id} missing 'status' field. Skipping.")
-                continue
-
-            # Update only 'registered' status documents that are not completed
-            if reg_data.get('status') == 'registered' and not reg_data.get('isCompleted', False):
-                registration_ref = db.collection('registrations').document(doc_snapshot.id)
-                
-                print(f"DEBUG:   Updating registration {doc_snapshot.id} with Room Code: '{room_code}', Password: '{room_password}'")
-                batch.update(registration_ref, {
+        # Iterate through all matching documents with pagination
+        docs = registrations_ref.stream()
+        for doc in docs:
+            if doc.exists:
+                batch.update(doc.reference, {
                     "roomCode": room_code,
                     "roomPassword": room_password,
                     "updatedByAdminAt": firestore.SERVER_TIMESTAMP
                 })
                 updated_count += 1
-                print(f"DEBUG:     Added {doc_snapshot.id} to batch update. Total updated in batch: {updated_count}")
-            else:
-                print(f"DEBUG:   Skipping registration {doc_snapshot.id} (status: {reg_data.get('status')}, completed: {reg_data.get('isCompleted', False)}). Not 'registered' or already 'completed'.")
-
-        # After the loop, commit the batch
-        if not found_registrations:
-            print(f"DEBUG: No registrations were found for match ID '{match_id}' (loop did not run).")
-            return jsonify({
-                "success": False, 
-                "message": f"No registrations found for match ID '{match_id}' to update. Please ensure the match ID is correct and there are registered users."
-            }), 404
-        elif updated_count == 0:
-            print(f"DEBUG: Found registrations, but none met the update criteria. Total processed: {len(registrations_query_results)}")
-            return jsonify({
-                "success": False, 
-                "message": f"No active registrations were updated for match ID '{match_id}'. They might already be completed or canceled."
-            }), 200
-            
-        batch.commit()
-        print(f"DEBUG: Successfully committed batch update for {updated_count} registrations in match {match_id}.\n--- DEBUG: End Batch Update ---")
+                batch_count += 1
+                
+                # Commit batch when reaching limit
+                if batch_count >= MAX_BATCH_SIZE:
+                    batch.commit()
+                    app.logger.info(f"Committed batch of {batch_count} updates")
+                    batch = db.batch()  # Start new batch
+                    batch_count = 0
         
-        # Send Telegram notification for batch update
-        telegram_message = f"""*Admin Action: Batch Room Details Updated!*
-*Admin UID:* `{admin_user_id}`
+        # Commit final batch if any operations remain
+        if batch_count > 0:
+            batch.commit()
+            app.logger.info(f"Committed final batch of {batch_count} updates")
+        
+        # Only send notification if updates were made
+        if updated_count > 0:
+            telegram_message = f"""*Admin Action: Batch Room Details Updated!*
 *Match ID:* `{match_id}`
-*Updated {updated_count} Registrations.*
-*New Room Code:* `{room_code if room_code else 'Not Set'}`
-*New Room Password:* `{room_password if room_password else 'Not Set'}`
-*Update Time (Server):* `{datetime.now(IST_TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')}`
-"""
-        send_telegram_message(telegram_message)
+*Updated Registrations:* {updated_count}
+*Room Code:* `{room_code or 'Not Set'}`
+*Room Password:* `{'*' * len(room_password) if room_password else 'Not Set'}`"""
+            send_telegram_message(telegram_message)
+        
+        return jsonify(
+            success=True,
+            message=f"Updated room details for {updated_count} registrations",
+            updatedCount=updated_count
+        ), 200
 
-        return jsonify({"success": True, "message": f"Successfully updated room details for {updated_count} registrations in match {match_id}."}), 200
-            
     except Exception as e:
-        print(f"--- DEBUG: FATAL SERVER ERROR in admin_update_match_room_details ---")
-        print(f"Error during batch update: {e}")
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"An unexpected server error occurred during batch update: {e}"}), 500
-
+        app.logger.error(f"Batch update failed: {str(e)}", exc_info=True)
+        return jsonify(
+            success=False,
+            message=f"Batch update failed: {str(e)}"
+        ), 500
 
 @app.route('/api/admin/update_registration_status', methods=['POST'])
 def update_registration_status_api_admin():
@@ -1351,4 +1308,3 @@ def options_handler(path):
     # host='0.0.0.0': Makes the server accessible externally.
     # port=5000: The port on which the Flask server will listen.
     #app.run(debug=True, host='0.0.0.0', port=5000)
-
