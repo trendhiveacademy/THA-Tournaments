@@ -7,7 +7,7 @@
 # =====================================================================
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, make_response
 from datetime import datetime, timedelta, timezone # Used for time calculations and timestamps
 from flask_cors import CORS # Required for handling Cross-Origin Resource Sharing
 from dotenv import load_dotenv # For loading environment variables from .env file
