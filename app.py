@@ -1085,12 +1085,9 @@ def manage_prize_items_api_admin():
         return jsonify({"success": False, "message": f"Server error managing prize items: {e}"}), 500
 
 
+# MODIFY EXISTING ENDPOINT
 @app.route('/api/admin/update_match_room_details', methods=['POST'])
 def admin_update_match_room_details_api_admin():
-    """
-    Admin: Updates the roomCode and roomPassword for ALL registrations
-    belonging to a specific matchId with proper batching and error handling.
-    """
     try:
         data = request.json
         match_id = data.get('matchId')
@@ -1101,66 +1098,36 @@ def admin_update_match_room_details_api_admin():
         # SECURE ADMIN VERIFICATION
         ADMIN_UID = os.environ.get('ADMIN_UID')
         if admin_user_id != ADMIN_UID:
-            app.logger.warning(f"Unauthorized access attempt by {admin_user_id}")
             return jsonify(success=False, message="Unauthorized access"), 403
 
         if not match_id:
             return jsonify(success=False, message="Match ID is required"), 400
 
-        app.logger.info(f"Batch update for match: {match_id}")
-
-        # FIXED: Use collection group query to find all registrations
-        registrations_ref = db.collection_group('registrations') \
+        # FIXED QUERY (remove isCompleted filter)
+        registrations_ref = db.collection('registrations') \
             .where('matchId', '==', match_id) \
-            .where('status', '==', 'registered') \
-            .where('isCompleted', '==', False)
+            .where('status', '==', 'registered')
         
         updated_count = 0
         batch = db.batch()
-        batch_count = 0
-        MAX_BATCH_SIZE = 400  # Stay under 500 limit
         
-        # Iterate through all matching documents with pagination
-        docs = registrations_ref.stream()
-        for doc in docs:
-            if doc.exists:
-                batch.update(doc.reference, {
-                    "roomCode": room_code,
-                    "roomPassword": room_password,
-                    "updatedByAdminAt": firestore.SERVER_TIMESTAMP
-                })
-                updated_count += 1
-                batch_count += 1
-                
-                # Commit batch when reaching limit
-                if batch_count >= MAX_BATCH_SIZE:
-                    batch.commit()
-                    app.logger.info(f"Committed batch of {batch_count} updates")
-                    batch = db.batch()  # Start new batch
-                    batch_count = 0
+        for doc in registrations_ref.stream():
+            batch.update(doc.reference, {
+                "roomCode": room_code,
+                "roomPassword": room_password
+            })
+            updated_count += 1
         
-        # Commit final batch if any operations remain
-        if batch_count > 0:
-            batch.commit()
-            app.logger.info(f"Committed final batch of {batch_count} updates")
-        
-        # Only send notification if updates were made
         if updated_count > 0:
-            telegram_message = f"""*Admin Action: Batch Room Details Updated!*
-*Match ID:* `{match_id}`
-*Updated Registrations:* {updated_count}
-*Room Code:* `{room_code or 'Not Set'}`
-*Room Password:* `{'*' * len(room_password) if room_password else 'Not Set'}`"""
-            send_telegram_message(telegram_message)
+            batch.commit()
         
         return jsonify(
             success=True,
-            message=f"Updated room details for {updated_count} registrations",
+            message=f"Updated {updated_count} registrations",
             updatedCount=updated_count
         ), 200
 
     except Exception as e:
-        app.logger.error(f"Batch update failed: {str(e)}", exc_info=True)
         return jsonify(
             success=False,
             message=f"Batch update failed: {str(e)}"
@@ -1291,6 +1258,39 @@ def after_request(response):
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def options_handler(path):
     return make_response('', 200)
+
+
+# ADD THIS NEW ENDPOINT
+@app.route('/api/admin/update_single_registration_room_details', methods=['POST'])
+def update_single_registration_room_details():
+    try:
+        data = request.json
+        registration_id = data.get('registrationId')
+        room_code = data.get('roomCode', '')
+        room_password = data.get('roomPassword', '')
+        admin_user_id = data.get('adminUserId')
+
+        if not is_admin(admin_user_id):
+            return jsonify({"success": False, "message": "Unauthorized: Admin privileges required."}), 403
+
+        if not registration_id:
+            return jsonify({"success": False, "message": "Registration ID is required."}), 400
+
+        # Update the document
+        doc_ref = db.collection('registrations').document(registration_id)
+        doc_ref.update({
+            'roomCode': room_code,
+            'roomPassword': room_password
+        })
+
+        return jsonify({"success": True, "message": "Room details updated successfully."}), 200
+
+    except Exception as e:
+        print(f"Error updating room details: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 500
+
+
 
 # =====================================================================
 # APPLICATION STARTUP
