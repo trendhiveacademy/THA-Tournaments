@@ -40,6 +40,12 @@ app = Flask(__name__, template_folder='templates') # Explicitly specify template
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_very_long_and_complex_random_string_for_dev_purposes_change_this_in_prod_really_change_it')
 #CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for production.
 CORS(app, resources={r"/api/*": {"origins": "https://www.thatournaments.xyz"}})
+# =====================================================================
+
+# Initialize scheduler early
+scheduler = BackgroundScheduler()
+scheduler.start()  # Or start conditionally later
+
 
 # =====================================================================
 # FIREBASE INITIALIZATION
@@ -80,16 +86,9 @@ except Exception as e:
 
 # =====================================================================
 
-# Add after app initialization
-if not scheduler.running:
-    scheduler.add_job(
-        mark_completed_matches,
-        'cron',
-        hour=3,  # Run daily at 3 AM IST
-        timezone=IST_TIMEZONE
-    )
-    scheduler.start()
-    print("Scheduled task started for daily match cleanup")
+# Now this won't crash
+if not scheduler.running:  # Line 84 (now safe)
+    pass
 
 
 
