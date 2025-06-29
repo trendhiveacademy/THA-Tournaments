@@ -230,6 +230,36 @@ def send_telegram_message(message, parse_mode="Markdown"):
         return False
     return True
 
+
+# ... (existing helper functions)
+
+def mark_completed_matches():
+    """Automatically mark completed matches in the database."""
+    try:
+        print("🔍 Marking completed matches...")
+        now_ist = datetime.now(IST_TIMEZONE)
+        registrations_ref = db.collection('registrations').where('status', '==', 'registered').get()
+        
+        for doc in registrations_ref:
+            data = doc.to_dict()
+            match_time = data.get('matchTime')
+            if match_time and is_match_completed_server_side(match_time):
+                doc.reference.update({'status': 'completed'})
+                print(f"  Marked registration {doc.id} as completed")
+                
+        print("✅ Completed matches marked")
+    except Exception as e:
+        print(f"❌ Error marking completed matches: {e}")
+        traceback.print_exc()
+
+def run_startup_tasks():
+    """Runs critical initialization tasks at app startup."""
+    print("🚀 Running startup tasks...")
+    mark_completed_matches()
+    initialize_booked_slots_from_firestore_on_startup()
+    print("✅ Startup tasks completed")
+
+
 # --- In-memory Tournament Slot Management Functions (for booking logic) ---
 # These assume `available_slots` is initialized by `initialize_booked_slots_from_firestore_on_startup()`
 # and updated by admin actions.
@@ -386,7 +416,10 @@ def ping():
 # def leaderboard():
 #     return render_template('leaderboard.html')
 
-
+@app.before_first_request
+def initialize():
+    """Run initialization tasks before first request."""
+    run_startup_tasks()
 # =====================================================================
 # API ENDPOINTS - Public Facing (Read-only or User Actions)
 # These endpoints are generally consumed by the public-facing 'index.html'
@@ -511,8 +544,6 @@ def get_website_content_api():
         return jsonify({"success": False, "message": "Internal error"}), 500
 
 
-# Add this BEFORE checking existing registrations
-mark_completed_matches()  # Ensure we have latest status
 @app.route('/api/register_tournament', methods=['POST'])
 def register_tournament():
     match_time = registration_data.get('matchTime')
