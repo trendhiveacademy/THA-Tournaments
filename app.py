@@ -110,6 +110,9 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'YOUR_TELEGRAM_CHAT_ID') # CHAN
 # Define IST timezone explicitly for consistency
 IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 
+# Add this flag 👇
+startup_tasks_done = False  # New global flag
+
 # =====================================================================
 # HELPER FUNCTIONS
 # =====================================================================
@@ -382,7 +385,16 @@ def initialize_booked_slots_from_firestore_on_startup():
 # YOUR EXISTING CUSTOM HELPER FUNCTIONS HERE
 # =====================================================================
 # Any other helper functions you have, copy them here.
-
+# =====================================================================
+# ADD THIS NEW BEFORE_REQUEST HANDLER 👇
+# =====================================================================
+@app.before_request
+def run_startup_tasks_once():
+    global startup_tasks_done
+    if not startup_tasks_done:
+        run_startup_tasks()
+        startup_tasks_done = True
+        print("✅ Startup tasks executed successfully")
 
 # =====================================================================
 # FLASK ROUTES - Frontend Page Renderers
@@ -416,10 +428,12 @@ def ping():
 # def leaderboard():
 #     return render_template('leaderboard.html')
 
-@app.before_first_request
-def initialize():
-    """Run initialization tasks before first request."""
-    run_startup_tasks()
+#@app.before_first_request
+#def initialize():
+ #   """Run initialization tasks before first request."""
+  #  run_startup_tasks()
+
+
 # =====================================================================
 # API ENDPOINTS - Public Facing (Read-only or User Actions)
 # These endpoints are generally consumed by the public-facing 'index.html'
