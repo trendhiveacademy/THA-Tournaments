@@ -560,12 +560,15 @@ def get_website_content_api():
 
 @app.route('/api/register_tournament', methods=['POST'])
 def register_tournament():
-    match_time = registration_data.get('matchTime')
-    if not is_match_open_for_registration(match_time):
-        return jsonify({
-            "success": False,
-            "message": f"Registration for this match closed 20 minutes before start time"
-        }), 400
+    try:
+        registration_data = request.json  # MUST COME FIRST
+        
+        # Then get values from registration_data
+        match_time = registration_data.get('matchTime')
+        if not is_match_open_for_registration(match_time):
+            return jsonify({...}), 400
+            
+        # Rest of the function...
     """
     Handles new tournament registrations from users.
     Registers a user for a specific match slot, saves to Firestore, and sends Telegram message.
