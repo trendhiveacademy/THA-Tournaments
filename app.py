@@ -557,24 +557,18 @@ def get_website_content_api():
         traceback.print_exc()
         return jsonify({"success": False, "message": "Internal error"}), 500
 
-
 @app.route('/api/register_tournament', methods=['POST'])
 def register_tournament():
-    try:
-        registration_data = request.json  # MUST COME FIRST
-        
-        # Then get values from registration_data
-        match_time = registration_data.get('matchTime')
-        if not is_match_open_for_registration(match_time):
-            return jsonify({...}), 400
-            
-        # Rest of the function...
     """
     Handles new tournament registrations from users.
     Registers a user for a specific match slot, saves to Firestore, and sends Telegram message.
     """
     try:
         registration_data = request.json
+        if not registration_data:
+            return jsonify({"success": False, "message": "No registration data provided"}), 400
+
+        # Extract all fields at once
         user_id = registration_data.get('userId')
         email = registration_data.get('email')
         match_id = registration_data.get('matchId')
@@ -585,45 +579,52 @@ def register_tournament():
         teammates = registration_data.get('teammates', [])
         client_time = registration_data.get('clientTime')
 
+        # Validate required fields
         if not all([user_id, email, match_id, match_type, match_time, igl_ign, igl_ffid]):
             return jsonify({"success": False, "message": "Missing required registration data. Please provide all necessary fields."}), 400
 
-        # Fetch match slot details from Firestore and in-memory `available_slots`
-        match_slot_doc = db.collection('match_slots').document(match_id).get()
-        if not match_slot_doc.exists:
-            return jsonify({"success": False, "message": "Invalid match selected or match not found."}), 400
-        selected_match_slot = match_slot_doc.to_dict()
-
-        if not selected_match_slot.get('active', True):
-            return jsonify({"success": False, "message": f"Registration for {match_type} is currently not active."}), 400
-
-        # Check if registration is still open (20 minutes before match time)
+        # Check registration window first (before Firestore operations)
         if not is_match_open_for_registration(match_time):
             return jsonify({"success": False, "message": f"Registration for {match_type} at {match_time} is closed."}), 400
 
-        # Check for existing 'registered' status for this user and match
-        existing_registrations = db.collection('registrations').where('userId', '==', user_id).where('matchId', '==', match_id).get()
-        for doc in existing_registrations:
-            if doc.to_dict().get('status') == 'registered':
-                return jsonify({"success": False, "message": "You are already registered for this specific match. Please check your registered tournaments."}), 400
+        # Fetch match slot details from Firestore
+        match_slot_ref = db.collection('match_slots').document(match_id)
+        match_slot_doc = match_slot_ref.get()
         
-        # Check overall match capacity based on max_players for the match slot
-        current_active_registrations_query = db.collection('registrations').where('matchId', '==', match_id).where('status', '==', 'registered').get()
-        current_active_count = len(current_active_registrations_query)
+        if not match_slot_doc.exists:
+            return jsonify({"success": False, "message": "Invalid match selected or match not found."}), 400
+            
+        selected_match_slot = match_slot_doc.to_dict()
 
+        # Check if match is active
+        if not selected_match_slot.get('active', True):
+            return jsonify({"success": False, "message": f"Registration for {match_type} is currently not active."}), 400
+
+        # Check for existing registration
+        existing_registrations = db.collection('registrations') \
+            .where('userId', '==', user_id) \
+            .where('matchId', '==', match_id) \
+            .where('status', '==', 'registered') \
+            .get()
+            
+        if existing_registrations:
+            return jsonify({"success": False, "message": "You are already registered for this match. Please check your registrations."}), 400
+
+        # Check capacity
+        current_active_count = len(db.collection('registrations')
+            .where('matchId', '==', match_id)
+            .where('status', '==', 'registered')
+            .get())
+            
         if current_active_count >= selected_match_slot['max_players']:
-            return jsonify({"success": False, "message": f"Sorry, all slots for {match_type} at {match_time} are currently full! Please choose another match."}), 400
+            return jsonify({"success": False, "message": f"Sorry, all slots for {match_type} at {match_time} are full!"}), 400
 
-        # Get the next available slot number from in-memory pool
+        # Get next available slot
         slot_number = get_next_available_slot(match_id)
         if slot_number is None:
-            return jsonify({"success": False, "message": f"Sorry, no available slots for {match_type} despite capacity check! Please try again or contact support."}), 500
+            return jsonify({"success": False, "message": f"No available slots for {match_type} due to a system error"}), 500
 
-        # Book the slot in memory (CRITICAL: this needs to be after successful Firestore write in production with transactions)
-        # For this example, we book it now, and release on error.
-        if not book_slot_in_memory(match_id, slot_number):
-            return jsonify({"success": False, "message": "Failed to book a slot due to an internal slot management error. Please refresh and try again."}), 500
-
+        # Prepare registration data
         registration_to_save = {
             "userId": user_id,
             "email": email,
@@ -633,20 +634,20 @@ def register_tournament():
             "iglIGN": igl_ign,
             "iglFFID": igl_ffid,
             "teammates": teammates,
-            "slotNumber": slot_number, # Assign the booked slot number
-            "timestamp": firestore.SERVER_TIMESTAMP, # Use server timestamp for accuracy
-            "clientTime": client_time, # Client-side timestamp for debugging/info
-            "status": "registered", # Initial status
-            "autoDeleteOnCompletion": True, # Default preference
-            "roomCode": "", # Default empty; admin will set this
-            "roomPassword": "" # Default empty; admin will set this
+            "slotNumber": slot_number,
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "clientTime": client_time,
+            "status": "registered",
+            "autoDeleteOnCompletion": True,
+            "roomCode": "",
+            "roomPassword": ""
         }
 
-        # Add registration to Firestore.
-        # This will create a new document in the 'registrations' collection.
-        doc_ref_tuple = db.collection('registrations').add(registration_to_save)
-        registration_doc_id = doc_ref_tuple[1].id
+        # Save to Firestore
+        doc_ref = db.collection('registrations').add(registration_to_save)
+        registration_doc_id = doc_ref[1].id
 
+        # Create Telegram message
         telegram_message = f"""*New Free Fire Tournament Registration!*
 *Status:* Registered
 *User ID:* `{user_id}`
@@ -656,30 +657,37 @@ def register_tournament():
 *Match Time:* `{match_time}`
 *Slot Number:* `{slot_number}`
 *Firestore Doc ID:* `{registration_doc_id}`
-*Registration Initiated At (Client Time):* {client_time}
+*Client Time:* {client_time}
 """
         if teammates:
             telegram_message += "\n*Teammates:*\n"
-            for i, team_mate in enumerate(teammates):
-                telegram_message += f" - IGN: `{team_mate.get('ign', 'N/A')}`, FFID: `{team_mate.get('ffid', 'N/A')}`\n"
-        
+            for i, teammate in enumerate(teammates):
+                telegram_message += f"  {i+1}. IGN: `{teammate.get('ign', 'N/A')}`, FFID: `{teammate.get('ffid', 'N/A')}`\n"
+
         send_telegram_message(telegram_message)
 
         return jsonify({
             "success": True,
-            "message": "Registration successful! You will be redirected to your registrations.",
+            "message": "Registration successful!",
             "registrationDocId": registration_doc_id,
             "slotNumber": slot_number
         }), 200
 
     except Exception as e:
-        print(f"Error during registration: {e}")
+        error_msg = f"Registration error: {str(e)}"
+        print(error_msg)
         traceback.print_exc()
-        # If an error occurs, try to release the slot booked in memory
+        
+        # Release slot if it was assigned
         if 'slot_number' in locals() and 'match_id' in locals():
             release_slot_in_memory(match_id, slot_number)
-            print(f"Released slot {slot_number} for {match_id} due to registration error.")
-        return jsonify({"success": False, "message": f"An internal server error occurred during registration: {str(e)}"}), 500
+            print(f"Released slot {slot_number} due to error")
+            
+        return jsonify({
+            "success": False,
+            "message": "Internal server error during registration",
+            "error": error_msg
+        }), 500
 
 @app.route('/api/get_registrations', methods=['GET'])
 def get_registrations():
