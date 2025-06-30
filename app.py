@@ -16,6 +16,11 @@ import os
 import traceback # For printing full tracebacks during debugging
 import requests # For Telegram notifications
 import json
+
+# Add to imports
+import razorpay
+import hmac
+import hashlib
 # =====================================================================
 # LOAD ENVIRONMENT VARIABLES
 # =====================================================================
@@ -1373,6 +1378,171 @@ def update_single_registration_room_details():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 500
 
+# =====================================================================
+
+# Add this route for wallet.html
+@app.route('/wallet.html')
+def wallet_page():
+    return render_template('wallet.html')
+
+# Wallet API Endpoints
+@app.route('/api/wallet', methods=['GET'])
+def get_wallet():
+    user_id = request.args.get('userId')
+    if not user_id:
+        return jsonify({"success": False, "message": "User ID is required"}), 400
+    
+    try:
+        wallet_ref = db.collection('wallets').document(user_id)
+        wallet_data = wallet_ref.get()
+        
+        if wallet_data.exists:
+            return jsonify({
+                "success": True,
+                "balance": wallet_data.to_dict().get('balance', 0)
+            }), 200
+        else:
+            # Create wallet if doesn't exist
+            wallet_ref.set({"balance": 0})
+            return jsonify({
+                "success": True,
+                "balance": 0
+            }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error fetching wallet: {str(e)}"
+        }), 500
+
+@app.route('/api/transactions', methods=['GET'])
+def get_transactions():
+    user_id = request.args.get('userId')
+    if not user_id:
+        return jsonify({"success": False, "message": "User ID is required"}), 400
+    
+    try:
+        transactions_ref = db.collection('transactions').where('userId', '==', user_id)
+        transactions = [doc.to_dict() for doc in transactions_ref.stream()]
+        return jsonify({
+            "success": True,
+            "transactions": transactions
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error fetching transactions: {str(e)}"
+        }), 500
+
+@app.route('/api/create_razorpay_order', methods=['POST'])
+def create_razorpay_order():
+    try:
+        data = request.json
+        amount = data.get('amount')  # in paise
+        user_id = data.get('userId')
+        
+        if not amount or not user_id:
+            return jsonify({"success": False, "message": "Amount and user ID are required"}), 400
+        
+        # Create order
+        order = razorpay_client.order.create({
+            'amount': amount,
+            'currency': 'INR',
+            'payment_capture': '1'
+        })
+        
+        return jsonify({
+            "success": True,
+            "order_id": order['id'],
+            "amount": order['amount'],
+            "currency": order['currency'],
+            "key_id": RAZORPAY_KEY_ID
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error creating order: {str(e)}"
+        }), 500
+
+@app.route('/api/verify_payment', methods=['POST'])
+def verify_payment():
+    try:
+        data = request.json
+        payment_id = data.get('razorpay_payment_id')
+        order_id = data.get('razorpay_order_id')
+        signature = data.get('razorpay_signature')
+        amount = data.get('amount')  # in rupees
+        user_id = data.get('userId')
+        
+        if not all([payment_id, order_id, signature, amount, user_id]):
+            return jsonify({"success": False, "message": "Missing required parameters"}), 400
+        
+        # Verify signature
+        generated_signature = hmac.new(
+            RAZORPAY_KEY_SECRET.encode(),
+            f"{order_id}|{payment_id}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        if generated_signature != signature:
+            return jsonify({"success": False, "message": "Invalid payment signature"}), 400
+        
+        # Calculate charges
+        charges = 0
+        if amount <= 30:
+            charges = 3
+        elif amount <= 60:
+            charges = 2
+        elif amount <= 100:
+            charges = 1
+        
+        deposit_amount = amount
+        net_amount = amount - charges
+        
+        # Update wallet
+        wallet_ref = db.collection('wallets').document(user_id)
+        wallet_data = wallet_ref.get()
+        
+        current_balance = wallet_data.to_dict().get('balance', 0) if wallet_data.exists else 0
+        new_balance = current_balance + net_amount
+        
+        wallet_ref.set({"balance": new_balance})
+        
+        # Record transaction
+        transaction_data = {
+            "userId": user_id,
+            "amount": net_amount,
+            "description": f"Wallet Deposit (₹{amount} - ₹{charges} fee)",
+            "status": "success",
+            "type": "deposit",
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "payment_id": payment_id,
+            "order_id": order_id
+        }
+        
+        db.collection('transactions').add(transaction_data)
+        
+        # Send Telegram notification
+        send_telegram_message(
+            f"New Wallet Deposit!\n"
+            f"User: {user_id}\n"
+            f"Amount: ₹{amount} (Fee: ₹{charges})\n"
+            f"Net: ₹{net_amount}\n"
+            f"New Balance: ₹{new_balance}"
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": "Payment verified and wallet updated",
+            "balance": new_balance
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Payment verification failed: {str(e)}"
+        }), 500
+
 #Last Day Update on 28th June..
 # =====================================================================
 # DAILY RESET FUNCTIONS
@@ -1433,6 +1603,11 @@ def reset_daily_slots():
     # Only initialize in development mode
     #if os.getenv('ENV') == 'development':
         #initialize_booked_slots_from_firestore_on_startup()
+# =====================================================================
+
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'your_razorpay_key_id')
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'your_razorpay_key_secret')
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
     
 # =====================================================================
     # Run the Flask application
