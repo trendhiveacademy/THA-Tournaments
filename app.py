@@ -6,6 +6,7 @@
 # IMPORTS
 # =====================================================================
 import firebase_admin
+from google.api_core.exceptions import Aborted
 from firebase_admin import credentials, firestore, auth
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session, make_response
 from datetime import datetime, timedelta, timezone # Used for time calculations and timestamps
@@ -390,6 +391,48 @@ def initialize_booked_slots_from_firestore_on_startup():
 # YOUR EXISTING CUSTOM HELPER FUNCTIONS HERE
 # =====================================================================
 # Any other helper functions you have, copy them here.
+def process_wallet_payment(user_id, amount, description, match_id=""):
+    """Deducts amount from wallet with transaction support"""
+    try:
+        wallet_ref = db.collection('wallets').document(user_id)
+        transaction = db.transaction()
+        
+        @firestore.transactional
+        def update_in_transaction(transaction, wallet_ref):
+            wallet_doc = wallet_ref.get(transaction=transaction)
+            if not wallet_doc.exists:
+                return False, "Wallet not found"
+            
+            current_balance = wallet_doc.to_dict().get('balance', 0)
+            if current_balance < amount:
+                return False, "Insufficient balance"
+            
+            new_balance = current_balance - amount
+            transaction.update(wallet_ref, {'balance': new_balance})
+            
+            # Record transaction
+            transaction_data = {
+                "userId": user_id,
+                "amount": -amount,
+                "description": description,
+                "status": "success",
+                "type": "tournament_registration",
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                "matchId": match_id
+            }
+            db.collection('transactions').add(transaction_data)
+            
+            return True, new_balance
+        
+        return update_in_transaction(transaction, wallet_ref)
+    except Aborted:
+        return False, "Transaction aborted, please retry"
+    except Exception as e:
+        return False, str(e)
+
+
+
+
 # =====================================================================
 # ADD THIS NEW BEFORE_REQUEST HANDLER 👇
 # =====================================================================
@@ -570,6 +613,8 @@ def register_tournament():
     """
     try:
         registration_data = request.json
+        # Extract payment method
+        payment_method = registration_data.get('paymentMethod', 'wallet')  # Default to wallet
         if not registration_data:
             return jsonify({"success": False, "message": "No registration data provided"}), 400
 
@@ -588,6 +633,30 @@ def register_tournament():
         if not all([user_id, email, match_id, match_type, match_time, igl_ign, igl_ffid]):
             return jsonify({"success": False, "message": "Missing required registration data. Please provide all necessary fields."}), 400
 
+        # Get entry fee from match slot
+        entry_fee = selected_match_slot.get('entry', 0)
+
+        # Process payment based on method
+        if payment_method == 'wallet':
+            # Deduct from wallet
+            success, result = process_wallet_payment(
+                user_id,
+                entry_fee,
+                f"Tournament entry: {match_type}",
+                match_id
+            )
+            if not success:
+                return jsonify({"success": False, "message": result}), 400
+        else:  # Razorpay
+            # Verify payment here if needed
+            pass
+        
+        # ... [existing registration logic] ...
+         # Add entry fee to registration record
+        registration_to_save["entryFee"] = entry_fee
+        registration_to_save["paymentMethod"] = payment_method
+        
+        
         # Check registration window first (before Firestore operations)
         if not is_match_open_for_registration(match_time):
             return jsonify({"success": False, "message": f"Registration for {match_type} at {match_time} is closed."}), 400
@@ -679,6 +748,9 @@ def register_tournament():
         }), 200
 
     except Exception as e:
+        # Handle errors and refund if needed
+        return jsonify({"success": False, "message": f"Payment processing failed: {str(e)}"}), 500
+        
         error_msg = f"Registration error: {str(e)}"
         print(error_msg)
         traceback.print_exc()
