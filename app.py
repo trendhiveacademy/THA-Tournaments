@@ -1509,7 +1509,7 @@ def get_transactions():
 def create_razorpay_order():
     try:
         data = request.json
-        amount = data.get('amount')  # in paise
+        amount = int(float(data.get('amount')) * 100)  # Convert to paise
         user_id = data.get('userId')
         
         if not amount or not user_id:
