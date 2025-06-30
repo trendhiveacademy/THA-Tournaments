@@ -1452,6 +1452,72 @@ def update_single_registration_room_details():
 
 # =====================================================================
 
+@app.route("/api/wallet/deposit", methods=["POST"])
+def wallet_deposit():
+    try:
+        data = request.json
+        user_id = session.get("user_id")
+        amount = int(data.get("amount", 0))
+
+        if not user_id or amount <= 0:
+            return jsonify({"success": False, "message": "Invalid data"})
+
+        wallet_ref = db.collection('wallets').document(user_id)
+        wallet_doc = wallet_ref.get()
+
+        if not wallet_doc.exists:
+            wallet_ref.set({"balance": amount})
+        else:
+            current_balance = wallet_doc.to_dict().get("balance", 0)
+            wallet_ref.update({"balance": current_balance + amount})
+
+        # Log transaction
+        db.collection("transactions").add({
+            "userId": user_id,
+            "amount": amount,
+            "description": "Wallet deposit",
+            "type": "deposit",
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "status": "success",
+            "razorpay_id": data.get("razorpay_payment_id", "")
+        })
+
+        return jsonify({"success": True})
+    except Exception as e:
+        print("Deposit error:", e)
+        return jsonify({"success": False})
+
+@app.route("/api/register_tournament", methods=["POST"])
+def register_tournament():
+    try:
+        data = request.json
+        user_id = session.get("user_id")
+        match_id = data.get("matchId")
+        entry_fee = int(data.get("entryFee", 0))
+
+        if not user_id or not match_id or entry_fee <= 0:
+            return jsonify({"success": False, "message": "Invalid request"})
+
+        # Deduct from wallet
+        success, result = process_wallet_payment(user_id, entry_fee, "Tournament registration", match_id)
+        if not success:
+            return jsonify({"success": False, "message": result})
+
+        # Record registration
+        db.collection("registrations").add({
+            "userId": user_id,
+            "matchId": match_id,
+            "entryFee": entry_fee,
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "status": "registered"
+        })
+
+        return jsonify({"success": True})
+    except Exception as e:
+        print("Registration error:", e)
+        return jsonify({"success": False, "message": "Internal error"})
+
+
 # Add this route for wallet.html
 @app.route('/wallet.html')
 def wallet_page():
