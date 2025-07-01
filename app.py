@@ -109,8 +109,8 @@ ADMIN_UID = os.getenv('ADMIN_UID', 'e2vzNJEFhoVk0l1v4MtCp6OHHn03') # Default val
 print(f"Flask App: ADMIN_UID loaded from environment/default: {ADMIN_UID}")
 
 # Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN') # CHANGE THIS
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'YOUR_TELEGRAM_CHAT_ID') # CHANGE THIS
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8036281040:AAER0buiT6CBr-GI5ANVF8Bve4BSlfKL_tg') # CHANGE THIS
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '6103934030') # CHANGE THIS
 
 # Define IST timezone explicitly for consistency
 IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
@@ -1500,8 +1500,8 @@ async def get_wallet_transactions_api():
 # =====================================================================
 # RAZORPAY CONFIGURATION AND API ENDPOINTS
 # =====================================================================
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_e7y373gIq43n23') # Replace with your actual key ID
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'B8bO9vT1sQ2rW4xY6zC8aD0eF2gH4jK6') # Replace with your actual key secret
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_live_Zlm2mpJcfzPo7c') # Replace with your actual key ID
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'v3eJh8HmTYg3WsVREoJQVPdr') # Replace with your actual key secret
 razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 razorpay_client.set_app_details({"title": "Flask App", "version": "1.0"}) # Optional: Set app details
 
