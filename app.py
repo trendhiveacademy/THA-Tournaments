@@ -750,9 +750,9 @@ def register_for_match():
     user_wallet_ref = db.collection('wallets').document(leader_uid)
 
     try:
-        # Define synchronous transactional logic
+        # Define synchronous transactional logic with proper transaction parameter
         @firestore.transactional
-        def _register_transaction_logic(transaction):
+        def _register_transaction_logic(transaction):  # Added transaction parameter
             # 1. Get match slot data within transaction
             slot_doc = match_slot_doc_ref.get(transaction=transaction)
             if not slot_doc.exists:
@@ -860,13 +860,14 @@ def register_for_match():
     except ValueError as ve:
         print(f"Registration validation error: {ve}")
         return jsonify({"success": False, "message": str(ve)}), 400
-    except firestore.TransactionAborted:
+    except Aborted:  # Fixed exception reference
         print("Firestore transaction aborted due to contention")
         return jsonify({"success": False, "message": "Transaction failed due to concurrent access. Please try again."}), 500
     except Exception as e:
         print(f"Error registering for match: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "message": "An unexpected error occurred during registration."}), 500
+        
 @app.route('/api/get_registrations', methods=['GET'])
 async def get_registrations(): # Made async
     user_id = request.args.get('userId')
