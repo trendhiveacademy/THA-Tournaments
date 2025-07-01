@@ -156,23 +156,25 @@ def format_time_to_12hr_ist(time_24hr_str):
         # Create a dummy datetime object for today to parse the time
         dummy_date = datetime.now(IST_TIMEZONE).date()
         
-        # Handle emoji in time string if present, like '🕑 2:00 PM '
-        # Attempt to find time part, assuming it's the second to last element if PM/AM is present
-        parts = time_24hr_str.strip().split(' ')
-        time_only_str = parts[-2] if len(parts) > 1 and ('AM' in parts[-1] or 'PM' in parts[-1]) else parts[-1]
+        # Remove emojis and extra spaces, then split.
+        # This regex removes characters that are not digits, colons, spaces, A, M, P.
+        import re
+        cleaned_time_str = re.sub(r'[^\d:APM\s]', '', time_24hr_str).strip()
 
         # Try parsing with AM/PM first, then fallback to 24-hour if it fails
         try:
-            time_obj = datetime.strptime(time_only_str + ' ' + parts[-1] if 'AM' in parts[-1] or 'PM' in parts[-1] else time_only_str, '%I:%M %p').time()
+            # Handle cases like "2:00 PM" or "11:45 AM"
+            time_obj = datetime.strptime(cleaned_time_str, '%I:%M %p').time()
         except ValueError:
-            time_obj = datetime.strptime(time_only_str, '%H:%M').time()
+            # Handle cases like "14:00" (24-hour format)
+            time_obj = datetime.strptime(cleaned_time_str, '%H:%M').time()
         
         # Combine to a datetime object for formatting
         dt_obj = datetime.combine(dummy_date, time_obj)
         
         return dt_obj.strftime('%I:%M %p') # %I for 12-hour, %p for AM/PM
     except ValueError:
-        print(f"Warning: Could not parse 24-hour time '{time_24hr_str}'.")
+        print(f"Warning: Could not parse time after cleaning '{time_24hr_str}'. Returning original. Error: {e}")
         return time_24hr_str # Return original if invalid format
 
 def get_next_available_slot(match_slot_id):
@@ -239,23 +241,19 @@ def is_match_open_for_registration(match_time_str):
         # Assuming match_time_str is in "HH:MM AM/PM" format or similar that can be parsed
         # This is a simplified parsing. You might need a more robust date/time parser.
         # For a backend, it's better to work with ISO formatted strings or timestamps.
-        # Let's assume match_time_str is "HH:MM" (24-hour format) for simplicity here.
         
         # Parse match time (assuming it's for today or tomorrow)
         now = datetime.now()
         
-        # Handle emoji in time string if present, like '🕑 2:00 PM '
-        time_part = match_time_str.split(' ')[-2] # Get "2:00" from "🕑 2:00 PM "
-        if 'AM' in match_time_str or 'PM' in match_time_str:
-            # Attempt to parse 12-hour format with AM/PM
-            try:
-                match_dt_obj = datetime.strptime(time_part + ' ' + match_time_str.split(' ')[-1], "%I:%M %p").time()
-            except ValueError:
-                 # Fallback if parsing with AM/PM fails, try without (e.g., if it's just "HH:MM")
-                match_dt_obj = datetime.strptime(time_part, "%H:%M").time()
-        else:
-            # Assume 24-hour format if no AM/PM
-            match_dt_obj = datetime.strptime(time_part, "%H:%M").time()
+        # Remove emojis and extra spaces, then parse.
+        import re
+        cleaned_time_str = re.sub(r'[^\d:APM\s]', '', match_time_str).strip()
+
+        # Try parsing with AM/PM first, then fallback to 24-hour if it fails
+        try:
+            match_dt_obj = datetime.strptime(cleaned_time_str, "%I:%M %p").time()
+        except ValueError:
+            match_dt_obj = datetime.strptime(cleaned_time_str, "%H:%M").time()
 
         match_datetime = now.replace(hour=match_dt_obj.hour, minute=match_dt_obj.minute, second=0, microsecond=0)
 
@@ -798,8 +796,7 @@ async def register_for_match():
                 'type': 'debit',
                 'amount': registration_fee,
                 'timestamp': firestore.SERVER_TIMESTAMP,
-                'description': f"Tournament registration for {slot_data.get('type', 'N/A')} ({match_time_str})",
-                'referenceId': match_slot_id
+                'description': f"Tournament registration for {slot_data.get('type', 'N/A')} ({match_time_str})"
             }
             new_wallet_transaction_ref = db.collection('wallet_transactions').document()
             transaction.set(new_wallet_transaction_ref, wallet_transaction_data)
