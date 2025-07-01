@@ -630,29 +630,10 @@ def register_tournament():
         if not all([user_id, email, match_id, match_type, match_time, igl_ign, igl_ffid]):
             return jsonify({"success": False, "message": "Missing required registration data. Please provide all necessary fields."}), 400
 
-        # Get entry fee from match slot
-        entry_fee = selected_match_slot.get('entry', 0)
+       
 
-        # Process payment based on method
-        if payment_method == 'wallet':
-            # Deduct from wallet
-            success, result = process_wallet_payment(
-                user_id,
-                entry_fee,
-                f"Tournament entry: {match_type}",
-                match_id
-            )
-            if not success:
-                return jsonify({"success": False, "message": result}), 400
-        else:  # Razorpay
-            # Verify payment here if needed
-            pass
         
-        # ... [existing registration logic] ...
-         # Add entry fee to registration record
-        registration_to_save["entryFee"] = entry_fee
-        registration_to_save["paymentMethod"] = payment_method
-        
+         
         
         # Check registration window first (before Firestore operations)
         if not is_match_open_for_registration(match_time):
