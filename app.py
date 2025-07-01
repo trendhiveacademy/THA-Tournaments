@@ -635,6 +635,7 @@ def get_website_content_api():
         traceback.print_exc()
         return jsonify({"success": False, "message": "Internal error"}), 500
 
+
 @app.route('/api/register-for-match', methods=['POST'])
 async def register_for_match():
     data = request.json
@@ -652,27 +653,26 @@ async def register_for_match():
         return jsonify({"success": False, "message": "Missing required registration information."}), 400
 
     match_slot_doc_ref = db.collection('match_slots').document(match_slot_id)
-    
+    user_wallet_ref = db.collection('wallets').document(leader_uid)
+
     try:
-        # Use a transaction for match slot updates and wallet deduction
+        # Define the asynchronous transactional logic
         @firestore.transactional
-        async def register_transaction(transaction):
+        async def _register_transaction_logic(transaction):
+            # 1. Get match slot data within the transaction
             slot_doc = await match_slot_doc_ref.get(transaction=transaction)
             if not slot_doc.exists:
                 raise ValueError("Match slot not found.")
             
             slot_data = slot_doc.to_dict()
-            capacity = slot_data.get('max_players', 0) # Changed from 'capacity' to 'max_players'
+            capacity = slot_data.get('max_players', 0)
             
-            # Count current registrations for this match slot within the transaction
-            # Note: This is an expensive operation inside a transaction.
-            # A better approach for high-concurrency would be to maintain a counter on the match_slot document itself,
-            # but that requires careful handling of increments/decrements.
+            # 2. Count current registrations for this match slot within the transaction
             registrations_query = db.collection('registrations').where('matchId', '==', match_slot_id).where('status', '==', 'registered')
-            registrations_docs = await registrations_query.get() # Use await for get()
-            registrations_count = len(registrations_docs)
+            registrations_snapshot = await transaction.get(registrations_query)
+            registrations_count = len(registrations_snapshot)
 
-            registration_fee = slot_data.get('entry', 0.0) # Changed from 'registrationFee' to 'entry'
+            registration_fee = slot_data.get('entry', 0.0)
 
             # Check if registration is open (20 minutes before match)
             match_time_str = slot_data.get('time')
@@ -682,33 +682,36 @@ async def register_for_match():
             if registrations_count >= capacity:
                 raise ValueError("Match slot is full.")
 
-            # Check wallet balance and deduct funds
-            current_balance = await get_user_wallet_balance(leader_uid)
-            if current_balance is None:
-                 raise ValueError("Failed to retrieve wallet balance.")
+            # 3. Get user wallet balance within the transaction
+            user_wallet_doc = await user_wallet_ref.get(transaction=transaction)
+            
+            current_balance = 0.0
+            if user_wallet_doc.exists:
+                current_balance = user_wallet_doc.to_dict().get('balance', 0.0)
 
             if current_balance < registration_fee:
                 raise ValueError(f"Insufficient funds. Required: ₹{registration_fee:.2f}, Available: ₹{current_balance:.2f}.")
 
-            # Deduct funds from wallet
-            deduction_success = await update_user_wallet_balance(
-                leader_uid,
-                registration_fee,
-                'debit',
-                reference_id=match_slot_id,
-                description=f"Tournament registration for {slot_data.get('type', 'N/A')} ({match_time_str})"
-            )
+            # 4. Deduct funds from wallet within the transaction
+            new_balance = current_balance - registration_fee
+            transaction.set(user_wallet_ref, {'balance': new_balance}, merge=True)
 
-            if not deduction_success:
-                raise ValueError("Failed to deduct registration fee from wallet.")
+            # 5. Record wallet transaction log within the transaction
+            wallet_transaction_data = {
+                'userId': leader_uid,
+                'type': 'debit',
+                'amount': registration_fee,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'description': f"Tournament registration for {slot_data.get('type', 'N/A')} ({match_time_str})",
+                'referenceId': match_slot_id
+            }
+            new_wallet_transaction_ref = db.collection('wallet_transactions').document()
+            transaction.set(new_wallet_transaction_ref, wallet_transaction_data)
 
-            # Proceed with registration if deduction is successful
-            # No need to update 'registrationsCount' in match_slots directly if we query it each time.
-            # The count is implicitly handled by new registrations.
-
+            # 6. Proceed with registration - Add registration document within the transaction
             registration_data = {
-                'matchId': match_slot_id, # Changed from matchSlotId to matchId
-                'matchType': slot_data.get('type', 'N/A'), # Changed from title to type
+                'matchId': match_slot_id,
+                'matchType': slot_data.get('type', 'N/A'),
                 'matchTime': slot_data.get('time', 'N/A'),
                 'teamName': team_name,
                 'leaderUid': leader_uid,
@@ -720,18 +723,20 @@ async def register_for_match():
                 'memberIgn3': member_ign_3,
                 'registrationTimestamp': firestore.SERVER_TIMESTAMP,
                 'status': 'registered',
-                'entryFee': registration_fee, # Store fee at time of registration
-                'slotNumber': get_next_available_slot(match_slot_id), # Assign slot number
+                'entryFee': registration_fee,
+                'slotNumber': get_next_available_slot(match_slot_id), # This function is not transactional, be aware of consistency
                 'roomCode': '',
                 'roomPassword': ''
             }
-            # Add registration document
-            await db.collection('registrations').add(registration_data)
+            new_registration_ref = db.collection('registrations').document()
+            transaction.set(new_registration_ref, registration_data)
             
-            # Update in-memory slot count
+            # Update in-memory slot count (if your in-memory system is separate from Firestore, this is fine)
             book_slot_in_memory(match_slot_id, registration_data['slotNumber'])
 
-            # Send Telegram notification
+            # Send Telegram notification (can be outside the transaction if not critical for atomicity)
+            # It's generally better to send non-critical notifications AFTER the transaction commits.
+            # But for simplicity, we keep it here for now.
             telegram_message = (
                 f"🎉 New Registration!\n"
                 f"Team: {team_name}\n"
@@ -742,19 +747,23 @@ async def register_for_match():
             )
             await send_telegram_message(telegram_message)
 
-            return {"success": True, "message": "Registered for match successfully!", "newBalance": current_balance - registration_fee}
+            return {"success": True, "message": "Registered for match successfully!", "newBalance": new_balance}
 
-        result = await register_transaction(db.transaction())
+        # Execute the transaction
+        result = await db.run_transaction(_register_transaction_logic)
         return jsonify(result), 200
 
     except ValueError as ve:
         print(f"Registration validation error: {ve}")
         return jsonify({"success": False, "message": str(ve)}), 400
+    except Aborted:
+        # This exception is raised by Firestore if the transaction fails due to a retry limit or conflict
+        print("Firestore transaction aborted due to contention or retry limit.")
+        return jsonify({"success": False, "message": "Transaction failed due to concurrent access. Please try again."}), 500
     except Exception as e:
         print(f"Error registering for match: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "message": "An unexpected error occurred during registration."}), 500
-
 
 @app.route('/api/get_registrations', methods=['GET'])
 async def get_registrations(): # Made async
