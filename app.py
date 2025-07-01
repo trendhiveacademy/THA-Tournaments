@@ -40,11 +40,15 @@ load_dotenv() # Loads variables from .env file into os.environ
 # =====================================================================
 # FLASK APP CONFIGURATION
 # =====================================================================
-app = Flask(__name__, template_folder='templates') # Explicitly specify templates folder
+# Removed template_folder as it's no longer needed for rendering HTML
+app = Flask(__name__)
 # IMPORTANT: Replace 'YOUR_SUPER_SECRET_KEY' with a strong, random, and unique secret key.
 # This is crucial for Flask session security. Generate a long, random string.
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_very_long_and_complex_random_string_for_dev_purposes_change_this_in_prod_really_change_it')
-#CORS(app) # Enable CORS for all routes. Adjust origins/methods as needed for production.
+
+# IMPORTANT: Update 'origins' to the exact URL of your GitHub Pages site.
+# If your GitHub Pages URL is like https://username.github.io/repo-name/, use that.
+# If you have multiple origins, list them: ["https://www.thatournaments.xyz", "https://username.github.io"]
 CORS(app, resources={r"/api/*": {"origins": "https://www.thatournaments.xyz"}})
 # =====================================================================
 
@@ -109,8 +113,8 @@ ADMIN_UID = os.getenv('ADMIN_UID', 'e2vzNJEFhoVk0l1v4MtCp6OHHn03') # Default val
 print(f"Flask App: ADMIN_UID loaded from environment/default: {ADMIN_UID}")
 
 # Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8036281040:AAER0buiT6CBr-GI5ANVF8Bve4BSlfKL_tg') # CHANGE THIS
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '6103934030') # CHANGE THIS
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN') # CHANGE THIS
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'YOUR_TELEGRAM_CHAT_ID') # CHANGE THIS
 
 # Define IST timezone explicitly for consistency
 IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
@@ -476,28 +480,28 @@ def run_startup_tasks_once():
         print("✅ Startup tasks executed successfully")
 
 # =====================================================================
-# FLASK ROUTES - Frontend Page Renderers
-# These routes simply serve the HTML files for your frontend.
+# FLASK ROUTES - Frontend Page Renderers (REMOVED FOR STATIC HOSTING)
+# These routes are commented out as HTML files are served by GitHub Pages.
 # =====================================================================
 @app.route('/')
-def index():
-    """Renders the main tournament page (index.html)."""
-    return render_template('index.html')
+def api_root():
+    """Returns a simple JSON response for the API root."""
+    return jsonify({"message": "THA Tournaments API is running!", "status": "ok"}), 200
     
-@app.route('/admin_panel.html')
-def admin_panel_page():
-    """Renders the admin panel page (admin_panel.html)."""
-    return render_template('admin_panel.html')
+# @app.route('/admin_panel.html')
+# def admin_panel_page():
+#     """Renders the admin panel page (admin_panel.html)."""
+#     return render_template('admin_panel.html')
 
-@app.route('/registered.html')
-def registered_page():
-    """Renders the user's registered matches page (registered.html)."""
-    return render_template('registered.html')
+# @app.route('/registered.html')
+# def registered_page():
+#     """Renders the user's registered matches page (registered.html)."""
+#     return render_template('registered.html')
 
-@app.route('/wallet.html')
-def wallet_page():
-    """Renders the user's wallet page (wallet.html)."""
-    return render_template('wallet.html')
+# @app.route('/wallet.html')
+# def wallet_page():
+#     """Renders the user's wallet page (wallet.html)."""
+#     return render_template('wallet.html')
 
 # =====================================================================
 # YOUR EXISTING CUSTOM FLASK ROUTES (Frontend or other API) HERE
@@ -659,10 +663,15 @@ async def register_for_match():
             
             slot_data = slot_doc.to_dict()
             capacity = slot_data.get('max_players', 0) # Changed from 'capacity' to 'max_players'
-            registrations_count = len(db.collection('registrations')
-                                       .where('matchId', '==', match_slot_id)
-                                       .where('status', '==', 'registered')
-                                       .get()) # Recalculate current registrations
+            
+            # Count current registrations for this match slot within the transaction
+            # Note: This is an expensive operation inside a transaction.
+            # A better approach for high-concurrency would be to maintain a counter on the match_slot document itself,
+            # but that requires careful handling of increments/decrements.
+            registrations_query = db.collection('registrations').where('matchId', '==', match_slot_id).where('status', '==', 'registered')
+            registrations_docs = await registrations_query.get() # Use await for get()
+            registrations_count = len(registrations_docs)
+
             registration_fee = slot_data.get('entry', 0.0) # Changed from 'registrationFee' to 'entry'
 
             # Check if registration is open (20 minutes before match)
@@ -748,7 +757,7 @@ async def register_for_match():
 
 
 @app.route('/api/get_registrations', methods=['GET'])
-def get_registrations():
+async def get_registrations(): # Made async
     user_id = request.args.get('userId')
     if not user_id:
         return jsonify({"success": False, "message": "User ID is required to fetch registrations."}), 400
@@ -756,11 +765,12 @@ def get_registrations():
     try:
         registrations_ref = db.collection('registrations')\
                               .where('leaderUid', '==', user_id)\
-                              .order_by('registrationTimestamp', direction=firestore.Query.DESCENDING)\
-                              .get()
+                              .order_by('registrationTimestamp', direction=firestore.Query.DESCENDING)
+        
+        docs = await registrations_ref.get() # Use await for get()
 
         registrations_list = []
-        for doc in registrations_ref:
+        for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
 
@@ -801,7 +811,7 @@ def get_registrations():
 
 
 @app.route('/api/get_match_participants', methods=['GET'])
-def get_match_participants():
+async def get_match_participants(): # Made async
     """
     Fetches participants (IGN, FFID) for a specific match ID.
     Accessible to any logged-in user to see their lobby.
@@ -811,10 +821,12 @@ def get_match_participants():
         return jsonify({"success": False, "message": "Match ID is required to fetch participants."}), 400
 
     try:
-        participants_ref = db.collection('registrations').where('matchId', '==', match_id).where('status', '==', 'registered').get()
+        participants_ref = db.collection('registrations').where('matchId', '==', match_id).where('status', '==', 'registered')
+        
+        docs = await participants_ref.get() # Use await for get()
         
         participants_list = []
-        for doc in participants_ref:
+        for doc in docs:
             data = doc.to_dict()
             participant = {
                 "leaderIgn": data.get('leaderIgn', 'N/A'), # Changed from iglIGN
@@ -1415,8 +1427,18 @@ async def get_all_registrations_api_admin():
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    if origin in ["https://www.thatournaments.xyz", "https://trendhiveacademy.github.io"]:
+    # IMPORTANT: Ensure this list includes ALL domains your frontend might be hosted on.
+    # For GitHub Pages, it's typically https://USERNAME.github.io or https://USERNAME.github.io/REPONAME/
+    allowed_origins = ["https://www.thatournaments.xyz", "https://trendhiveacademy.github.io"] # Add your GitHub Pages URL here
+    
+    if origin and origin in allowed_origins:
         response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        # If the origin is not in the allowed list, you might want to set a default or deny.
+        # For development, you might use "*", but NEVER in production.
+        # For production, it's safer to explicitly deny or not set the header if origin is not allowed.
+        pass 
+
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
@@ -1424,6 +1446,7 @@ def after_request(response):
 
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def options_handler(path):
+    # This handles CORS preflight requests for all /api routes
     return make_response('', 200)
 
 
@@ -1500,8 +1523,8 @@ async def get_wallet_transactions_api():
 # =====================================================================
 # RAZORPAY CONFIGURATION AND API ENDPOINTS
 # =====================================================================
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_live_Zlm2mpJcfzPo7c') # Replace with your actual key ID
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'v3eJh8HmTYg3WsVREoJQVPdr') # Replace with your actual key secret
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_e7y373gIq43n23') # Replace with your actual key ID
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'B8bO9vT1sQ2rW4xY6zC8aD0eF2gH4jK6') # Replace with your actual key secret
 razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 razorpay_client.set_app_details({"title": "Flask App", "version": "1.0"}) # Optional: Set app details
 
