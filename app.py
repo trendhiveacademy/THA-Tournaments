@@ -165,30 +165,113 @@ def format_time_to_12hr_ist(time_24hr_str):
         print(f"Warning: Could not parse 24-hour time '{time_24hr_str}'.")
         return time_24hr_str # Return original if invalid format
 
+def get_next_available_slot(match_slot_id):
+    """
+    Assigns a dummy slot number. In a real app, this would be more robust.
+    Perhaps based on a counter on the match_slot document or pre-defined slots.
+    For now, just a simple increment based on existing registrations (less robust).
+    """
+    # This is a simplified approach. For true slot management, you'd need
+    # to maintain available slots or atomically increment a counter.
+    # For now, let's just return a random-ish number or a simple counter.
+    # A more robust solution would involve a counter field on the match_slot document.
+    try:
+        # This is not atomic with the transaction above, so it's a weak point for slot assignment.
+        # A better way: maintain a 'next_slot_number' field on the match_slot document itself
+        # and increment it within the transaction.
+        registrations_query = db.collection('registrations').where('matchId', '==', match_slot_id)
+        registrations_docs = registrations_query.stream() # Use stream for non-transactional count
+        current_registrations = sum(1 for _ in registrations_docs)
+        return current_registrations + 1
+    except Exception as e:
+        print(f"Error getting next available slot: {e}")
+        return 1 # Fallback to slot 1
+
+# Example: book_slot_in_memory (Placeholder, assuming you have an in-memory system)
+def book_slot_in_memory(match_slot_id, slot_number):
+    """Placeholder for updating an in-memory slot tracking system."""
+    print(f"In-memory: Booked slot {slot_number} for match {match_slot_id}")
+
+# Example: send_telegram_message
+async def send_telegram_message(message):
+    """Sends a message to a Telegram bot."""
+    TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram bot token or chat ID not configured.")
+        return False
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'text': message,
+        'parse_mode': 'HTML' # Use HTML for basic formatting
+    }
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        print("Telegram message sent successfully!")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending Telegram message: {e}")
+        traceback.print_exc()
+        return False
+
+# --- End Placeholder functions ---
+
+
 def is_match_open_for_registration(match_time_str):
     """
-    Determines if a match is open for registration based on its time (20 minutes before).
-    Intelligently handles matches that have passed today by considering the next day.
+    Checks if a match is open for registration based on its time string.
+    Registration closes 20 minutes before match time.
     """
     try:
-        now_ist = datetime.now(IST_TIMEZONE)
+        # Assuming match_time_str is in "HH:MM AM/PM" format or similar that can be parsed
+        # This is a simplified parsing. You might need a more robust date/time parser.
+        # For a backend, it's better to work with ISO formatted strings or timestamps.
+        # Let's assume match_time_str is "HH:MM" (24-hour format) for simplicity here.
+        
+        # Parse match time (assuming it's for today or tomorrow)
+        now = datetime.now()
+        
+        # Handle emoji in time string if present, like '🕑 2:00 PM '
+        time_part = match_time_str.split(' ')[-2] # Get "2:00" from "🕑 2:00 PM "
+        if 'AM' in match_time_str or 'PM' in match_time_str:
+            # Attempt to parse 12-hour format with AM/PM
+            try:
+                match_dt_obj = datetime.strptime(time_part + ' ' + match_time_str.split(' ')[-1], "%I:%M %p").time()
+            except ValueError:
+                 # Fallback if parsing with AM/PM fails, try without (e.g., if it's just "HH:MM")
+                match_dt_obj = datetime.strptime(time_part, "%H:%M").time()
+        else:
+            # Assume 24-hour format if no AM/PM
+            match_dt_obj = datetime.strptime(time_part, "%H:%M").time()
 
-        # Parse match time string and create a datetime object for today in IST
-        match_hour, match_minute = map(int, match_time_str.split(':'))
-        match_datetime_ist = now_ist.replace(hour=match_hour, minute=match_minute, second=0, microsecond=0)
+        match_datetime = now.replace(hour=match_dt_obj.hour, minute=match_dt_obj.minute, second=0, microsecond=0)
 
-        # If the match time for today has already passed, consider it for the next day
-        if match_datetime_ist < now_ist:
-            match_datetime_ist += timedelta(days=1)
-
+        # If match time has already passed today, set to tomorrow
+        if match_datetime < now:
+            match_datetime += timedelta(days=1)
+        
         # Registration closes 20 minutes before match time
-        registration_close_time_ist = match_datetime_ist - timedelta(minutes=20)
-
-        return now_ist < registration_close_time_ist
+        registration_close_time = match_datetime - timedelta(minutes=20)
+        
+        return now < registration_close_time
     except Exception as e:
-        print(f"Error checking match registration status for time '{match_time_str}': {e}")
+        print(f"Warning: Could not parse 24-hour time '{match_time_str}'. Error: {e}")
+        return False # Default to closed if time parsing fails
+# Example: get_user_wallet_balance
+async def get_user_wallet_balance(uid):
+    """Fetches user wallet balance from Firestore."""
+    try:
+        wallet_doc = await db.collection('wallets').document(uid).get()
+        if wallet_doc.exists:
+            return wallet_doc.to_dict().get('balance', 0.0)
+        return 0.0 # Default balance if wallet document doesn't exist
+    except Exception as e:
+        print(f"Error fetching wallet balance for {uid}: {e}")
         traceback.print_exc()
-        return False # Default to not open if there's an error parsing time
+        return None # Indicate failure
 
 def is_match_completed_server_side(match_time_str):
     """
