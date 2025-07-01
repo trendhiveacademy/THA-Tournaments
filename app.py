@@ -18,10 +18,6 @@ import traceback # For printing full tracebacks during debugging
 import requests # For Telegram notifications
 import json
 
-# Add to imports for Razorpay
-import razorpay
-import hmac
-import hashlib
 # =====================================================================
 # LOAD ENVIRONMENT VARIABLES
 # =====================================================================
@@ -32,15 +28,11 @@ load_dotenv() # Loads variables from .env file into os.environ
 # Please ensure all your specific imports (e.g., for Telegram bot, other utilities)
 # are copied and pasted into this section from your original app.py.
 # =====================================================================
-# For example:
-# import json # If you handle JSON manually
-# ...
 
 
 # =====================================================================
 # FLASK APP CONFIGURATION
 # =====================================================================
-# Removed template_folder as it's no longer needed for rendering HTML
 app = Flask(__name__)
 # IMPORTANT: Replace 'YOUR_SUPER_SECRET_KEY' with a strong, random, and unique secret key.
 # This is crucial for Flask session security. Generate a long, random string.
@@ -97,7 +89,7 @@ except Exception as e:
 # =====================================================================
 
 # Now this won't crash
-if not scheduler.running:  # Line 84 (now safe)
+if not scheduler.running:
     pass
 
 
@@ -134,9 +126,6 @@ def is_admin(user_id):
     return user_id == ADMIN_UID
 
 def format_timestamp(timestamp_obj):
-    if timestamp_obj is None:
-        return "N/A"
-    # ... rest of your code ...
     """
     Formats a Firestore Timestamp object or datetime object into a readable string (IST).
     Handles potential timezone differences and ensures a consistent display format.
@@ -173,7 +162,7 @@ def format_time_to_12hr_ist(time_24hr_str):
         dt_obj = datetime.combine(dummy_date, time_obj)
         
         return dt_obj.strftime('%I:%M %p') # %I for 12-hour, %p for AM/PM
-    except ValueError:
+    except ValueError as e:
         print(f"Warning: Could not parse time after cleaning '{time_24hr_str}'. Returning original. Error: {e}")
         return time_24hr_str # Return original if invalid format
 
@@ -199,13 +188,11 @@ def get_next_available_slot(match_slot_id):
         print(f"Error getting next available slot: {e}")
         return 1 # Fallback to slot 1
 
-# Example: book_slot_in_memory (Placeholder, assuming you have an in-memory system)
 def book_slot_in_memory(match_slot_id, slot_number):
     """Placeholder for updating an in-memory slot tracking system."""
     print(f"In-memory: Booked slot {slot_number} for match {match_slot_id}")
 
-# Example: send_telegram_message
-def send_telegram_message(message, parse_mode="HTML"): # Changed to def, removed async
+def send_telegram_message(message, parse_mode="HTML"):
     """Sends a message to a Telegram bot."""
     TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
     TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -217,7 +204,7 @@ def send_telegram_message(message, parse_mode="HTML"): # Changed to def, removed
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
         'text': message,
-        'parse_mode': parse_mode # Use HTML for basic formatting
+        'parse_mode': parse_mode
     }
     try:
         response = requests.post(url, json=payload)
@@ -229,27 +216,17 @@ def send_telegram_message(message, parse_mode="HTML"): # Changed to def, removed
         traceback.print_exc()
         return False
 
-# --- End Placeholder functions ---
-
-
 def is_match_open_for_registration(match_time_str):
     """
     Checks if a match is open for registration based on its time string.
     Registration closes 20 minutes before match time.
     """
     try:
-        # Assuming match_time_str is in "HH:MM AM/PM" format or similar that can be parsed
-        # This is a simplified parsing. You might need a more robust date/time parser.
-        # For a backend, it's better to work with ISO formatted strings or timestamps.
-        
-        # Parse match time (assuming it's for today or tomorrow)
         now = datetime.now()
         
-        # Remove emojis and extra spaces, then parse.
         import re
         cleaned_time_str = re.sub(r'[^\d:APM\s]', '', match_time_str).strip()
 
-        # Try parsing with AM/PM first, then fallback to 24-hour if it fails
         try:
             match_dt_obj = datetime.strptime(cleaned_time_str, "%I:%M %p").time()
         except ValueError:
@@ -257,18 +234,15 @@ def is_match_open_for_registration(match_time_str):
 
         match_datetime = now.replace(hour=match_dt_obj.hour, minute=match_dt_obj.minute, second=0, microsecond=0)
 
-        # If match time has already passed today, set to tomorrow
         if match_datetime < now:
             match_datetime += timedelta(days=1)
         
-        # Registration closes 20 minutes before match time
         registration_close_time = match_datetime - timedelta(minutes=20)
         
         return now < registration_close_time
     except Exception as e:
         print(f"Warning: Could not parse 24-hour time '{match_time_str}'. Error: {e}")
-        return False # Default to closed if time parsing fails
-
+        return False
 
 def is_match_completed_server_side(match_time_str):
     """
@@ -278,7 +252,6 @@ def is_match_completed_server_side(match_time_str):
     try:
         now_ist = datetime.now(IST_TIMEZONE)
         
-        # Create datetime object for the match (today at match time)
         match_hour, match_minute = map(int, match_time_str.split(':'))
         match_datetime_ist = now_ist.replace(
             hour=match_hour, 
@@ -287,11 +260,9 @@ def is_match_completed_server_side(match_time_str):
             microsecond=0
         )
         
-        # If match time is in the future today, not completed
         if match_datetime_ist > now_ist:
             return False
         
-        # If current time is more than 1 hour past match time, completed
         completion_time_ist = match_datetime_ist + timedelta(hours=1)
         return now_ist >= completion_time_ist
         
@@ -299,32 +270,6 @@ def is_match_completed_server_side(match_time_str):
         print(f"Error checking match completion: {e}")
         traceback.print_exc()
         return False
-
-# Already defined above, removed duplicate
-# def send_telegram_message(message, parse_mode="Markdown"):
-#     """Sends a message to the configured Telegram chat."""
-#     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID or TELEGRAM_BOT_TOKEN == 'YOUR_TELEGRAM_BOT_TOKEN' or TELEGRAM_CHAT_ID == 'YOUR_TELEGRAM_CHAT_ID':
-#         print("Telegram bot token or chat ID not configured or using default placeholders. Skipping Telegram message.")
-#         return False
-
-#     telegram_api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-#     telegram_payload = {
-#         "chat_id": TELEGRAM_CHAT_ID,
-#         "text": message,
-#         "parse_mode": parse_mode
-#     }
-#     try:
-#         response = requests.post(telegram_api_url, json=telegram_payload)
-#         response.raise_for_status() # Raise an exception for HTTP errors
-#         print("Telegram message sent successfully.")
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error sending Telegram message: {e}")
-#         traceback.print_exc()
-#         return False
-#     return True
-
-
-# ... (existing helper functions)
 
 def mark_completed_matches():
     """Automatically mark completed matches in the database."""
@@ -352,43 +297,6 @@ def run_startup_tasks():
     initialize_booked_slots_from_firestore_on_startup()
     print("✅ Startup tasks completed")
 
-
-# --- In-memory Tournament Slot Management Functions (for booking logic) ---
-# These assume `available_slots` is initialized by `initialize_booked_slots_from_firestore_on_startup()`
-# and updated by admin actions.
-
-# Already defined above, removed duplicate
-# def get_next_available_slot(match_id):
-#     """Finds smallest available slot number with date awareness"""
-#     if match_id not in available_slots:
-#         print(f"Error: Match ID '{match_id}' not found")
-#         return None
-
-#     slot_info = available_slots[match_id]
-#     current_booked = slot_info.get('booked_slots', [])
-#     total_allowed = slot_info['max_players']
-
-#     # Find first available slot
-#     for slot_num in range(1, total_allowed + 1):
-#         if slot_num not in current_booked:
-#             return slot_num
-#     return None  # No slots available
-
-# Already defined above, removed duplicate
-# def book_slot_in_memory(match_id, slot_number):
-#     """Marks a slot as booked in the in-memory `available_slots` dictionary."""
-#     if match_id in available_slots:
-#         if 'booked_slots' not in available_slots[match_id]:
-#             available_slots[match_id]['booked_slots'] = [] # Initialize if not present
-        
-#         if slot_number not in available_slots[match_id]['booked_slots']:
-#             available_slots[match_id]['booked_slots'].append(slot_number)
-#             available_slots[match_id]['booked_slots'].sort() # Keep sorted
-#             print(f"Booked slot {slot_number} for {match_id}. Current booked: {available_slots[match_id]['booked_slots']}")
-#             return True
-#     print(f"Failed to book slot {slot_number} for {match_id}. Either match_id not found or slot already booked.")
-#     return False
-
 def release_slot_in_memory(match_id, slot_number):
     """Releases a slot from the in-memory `available_slots` dictionary."""
     if match_id in available_slots and 'booked_slots' in available_slots[match_id]:
@@ -399,9 +307,6 @@ def release_slot_in_memory(match_id, slot_number):
     print(f"Failed to release slot {slot_number} for {match_id}. Match_id not found or slot not booked.")
     return False
 
-
-# Function to initialize in-memory 'available_slots' from Firestore on app startup
-
 slots_initialized = False
 
 @app.before_request
@@ -410,7 +315,6 @@ def initialize_slots_if_needed():
     if not slots_initialized:
         initialize_booked_slots_from_firestore_on_startup()
         slots_initialized = True
-
 
 def initialize_booked_slots_from_firestore_on_startup():
     """
@@ -434,10 +338,8 @@ def initialize_booked_slots_from_firestore_on_startup():
             slot_data['booked_slots'] = [] 
             
             available_slots[slot_data['id']] = slot_data
-            # print(f"  Loaded slot config: {slot_data.get('id', doc.id)} ({slot_data.get('type')})")
 
         # Now, populate the 'booked_slots' array by querying registrations
-        # This is a critical step to ensure memory state reflects actual bookings.
         print("  Populating booked_slots from existing registrations...")
         all_registrations_docs = db.collection('registrations').where('status', '==', 'registered').get() # Only active registrations
         
@@ -447,7 +349,6 @@ def initialize_booked_slots_from_firestore_on_startup():
             slot_number = reg_data.get('slotNumber')
             
             if match_id in available_slots and slot_number is not None:
-                # Ensure slot_number is an integer if it's stored as string/float
                 try:
                     slot_number = int(slot_number) 
                 except (ValueError, TypeError):
@@ -456,7 +357,6 @@ def initialize_booked_slots_from_firestore_on_startup():
 
                 if slot_number not in available_slots[match_id]['booked_slots']:
                     available_slots[match_id]['booked_slots'].append(slot_number)
-                    # print(f"    Added booking for {match_id}, Slot: {slot_number}")
             else:
                 print(f"    Warning: Registration {reg_doc.id} has invalid matchId/slotNumber or matchId not in config. Skipping booking sync.")
 
@@ -472,9 +372,9 @@ def initialize_booked_slots_from_firestore_on_startup():
         traceback.print_exc()
         print("In-memory slot management might be inconsistent. Please check Firestore connection and data structure.")
 
-
-
-
+# =====================================================================
+# REMOVED WALLET HELPER FUNCTIONS
+# =====================================================================
 
 # =====================================================================
 # ADD THIS NEW BEFORE_REQUEST HANDLER 👇
@@ -506,15 +406,14 @@ def api_root():
 #     """Renders the user's registered matches page (registered.html)."""
 #     return render_template('registered.html')
 
+# @app.route('/wallet.html')
+# def wallet_page():
+#     """Renders the user's wallet page (wallet.html)."""
+#     return render_template('wallet.html')
 
 # =====================================================================
 # YOUR EXISTING CUSTOM FLASK ROUTES (Frontend or other API) HERE
 # =====================================================================
-# Any other helper functions you have, copy them here.
-# For example:
-# @app.route('/leaderboard')
-# def leaderboard():
-#     return render_template('leaderboard.html')
 
 # =====================================================================
 # API ENDPOINTS - Public Facing (Read-only or User Actions)
@@ -557,7 +456,6 @@ def get_match_slots_api():
                 match_datetime_ist += timedelta(days=1)
             
             # Convert to Unix epoch milliseconds (important for JS countdown)
-            # Ensure it's timezone-aware before getting timestamp, then convert to milliseconds
             slot_data['targetTimeMillis'] = int(match_datetime_ist.timestamp() * 1000)
 
             # Filter for active and upcoming matches for public display
@@ -657,13 +555,10 @@ def register_for_match():
         return jsonify({"success": False, "message": "Missing required registration information."}), 400
 
     match_slot_doc_ref = db.collection('match_slots').document(match_slot_id)
-    
 
     try:
-        # Define synchronous transactional logic with proper transaction parameter
         @firestore.transactional
-        def _register_transaction_logic(transaction):  # Added transaction parameter
-            # 1. Get match slot data within transaction
+        def _register_transaction_logic(transaction):
             slot_doc = match_slot_doc_ref.get(transaction=transaction)
             if not slot_doc.exists:
                 raise ValueError("Match slot not found.")
@@ -671,11 +566,8 @@ def register_for_match():
             slot_data = slot_doc.to_dict()
             capacity = slot_data.get('max_players', 0)
             
-            # 2. Count current registrations within transaction
             registrations_query = db.collection('registrations').where('matchId', '==', match_slot_id).where('status', '==', 'registered')
             registrations_count = len(list(transaction.get(registrations_query)))
-
-            registration_fee = slot_data.get('entry', 0.0)
 
             # Check if registration is open
             match_time_str = slot_data.get('time')
@@ -685,29 +577,8 @@ def register_for_match():
             if registrations_count >= capacity:
                 raise ValueError("Match slot is full.")
 
-            # 3. Get user wallet balance within transaction
-            user_wallet_doc = user_wallet_ref.get(transaction=transaction)
-            current_balance = user_wallet_doc.get('balance', 0.0) if user_wallet_doc.exists else 0.0
-
-            if current_balance < registration_fee:
-                raise ValueError(f"Insufficient funds. Required: ₹{registration_fee:.2f}, Available: ₹{current_balance:.2f}.")
-
-            # 4. Deduct funds and update wallet
-            new_balance = current_balance - registration_fee
-            transaction.set(user_wallet_ref, {'balance': new_balance}, merge=True)
-
-            # 5. Record wallet transaction
-            wallet_transaction_data = {
-                'userId': leader_uid,
-                'type': 'debit',
-                'amount': registration_fee,
-                'timestamp': firestore.SERVER_TIMESTAMP,
-                'description': f"Tournament registration for {slot_data.get('type', 'N/A')} ({match_time_str})"
-            }
-            new_wallet_transaction_ref = db.collection('wallet_transactions').document()
-            transaction.set(new_wallet_transaction_ref, wallet_transaction_data)
-
-            # 6. Create registration
+            # No wallet deduction or payment check here
+            
             slot_number = get_next_available_slot(match_slot_id)
             registration_data = {
                 'matchId': match_slot_id,
@@ -723,7 +594,7 @@ def register_for_match():
                 'memberIgn3': member_ign_3,
                 'registrationTimestamp': firestore.SERVER_TIMESTAMP,
                 'status': 'registered',
-                'entryFee': registration_fee,
+                'entryFee': slot_data.get('entry', 0.0), # Still store entry fee for reference
                 'slotNumber': slot_number,
                 'roomCode': '',
                 'roomPassword': ''
@@ -731,28 +602,23 @@ def register_for_match():
             new_registration_ref = db.collection('registrations').document()
             transaction.set(new_registration_ref, registration_data)
             
-            # Update in-memory slot
             book_slot_in_memory(match_slot_id, slot_number)
 
             return {
                 "success": True,
                 "message": "Registered for match successfully!",
-                "newBalance": new_balance,
                 "telegram_message_data": {
                     "team_name": team_name,
                     "leader_ign": leader_ign,
                     "leader_email": leader_email,
                     "match_type": slot_data.get('type', 'N/A'),
                     "match_time_str": match_time_str,
-                    "registration_fee": registration_fee,
                     "slot_number": slot_number
                 }
             }
 
-        # Execute the transaction
         transaction_result = _register_transaction_logic()
 
-        # Send Telegram notification
         if transaction_result.get("success"):
             telegram_data = transaction_result["telegram_message_data"]
             telegram_message = (
@@ -760,7 +626,6 @@ def register_for_match():
                 f"Team: {telegram_data['team_name']}\n"
                 f"Leader: {telegram_data['leader_ign']} ({telegram_data['leader_email']})\n"
                 f"Match: {telegram_data['match_type']} at {telegram_data['match_time_str']}\n"
-                f"Fee Paid: ₹{telegram_data['registration_fee']:.2f}\n"
                 f"Slot Number: {telegram_data['slot_number']}"
             )
             send_telegram_message(telegram_message)
@@ -770,7 +635,7 @@ def register_for_match():
     except ValueError as ve:
         print(f"Registration validation error: {ve}")
         return jsonify({"success": False, "message": str(ve)}), 400
-    except Aborted:  # Fixed exception reference
+    except Aborted:
         print("Firestore transaction aborted due to contention")
         return jsonify({"success": False, "message": "Transaction failed due to concurrent access. Please try again."}), 500
     except Exception as e:
@@ -779,7 +644,7 @@ def register_for_match():
         return jsonify({"success": False, "message": "An unexpected error occurred during registration."}), 500
         
 @app.route('/api/get_registrations', methods=['GET'])
-async def get_registrations(): # Made async
+async def get_registrations():
     user_id = request.args.get('userId')
     if not user_id:
         return jsonify({"success": False, "message": "User ID is required to fetch registrations."}), 400
@@ -789,20 +654,18 @@ async def get_registrations(): # Made async
                               .where('leaderUid', '==', user_id)\
                               .order_by('registrationTimestamp', direction=firestore.Query.DESCENDING)
         
-        docs = await registrations_ref.get() # Use await for get()
+        docs = registrations_ref.stream()
 
         registrations_list = []
         for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
 
-            # Safe timestamp formatting
             try:
                 data['registrationTimestamp'] = format_timestamp(data.get('registrationTimestamp'))
             except:
                 data['registrationTimestamp'] = 'Invalid timestamp'
 
-            # Safe match completion check
             try:
                 data['isCompleted'] = is_match_completed_server_side(data.get('matchTime', ''))
             except:
@@ -810,9 +673,8 @@ async def get_registrations(): # Made async
 
             data['roomCode'] = data.get('roomCode', '')
             data['roomPassword'] = data.get('roomPassword', '')
-            data['entryFee'] = data.get('entryFee', 0.0) # Include entry fee
+            data['entryFee'] = data.get('entryFee', 0.0)
 
-            # Match time formatting
             match_time = data.get('matchTime')
             if match_time:
                 try:
@@ -833,7 +695,7 @@ async def get_registrations(): # Made async
 
 
 @app.route('/api/get_match_participants', methods=['GET'])
-async def get_match_participants(): # Made async
+async def get_match_participants():
     """
     Fetches participants (IGN, FFID) for a specific match ID.
     Accessible to any logged-in user to see their lobby.
@@ -845,25 +707,24 @@ async def get_match_participants(): # Made async
     try:
         participants_ref = db.collection('registrations').where('matchId', '==', match_id).where('status', '==', 'registered')
         
-        docs = await participants_ref.get() # Use await for get()
+        docs = participants_ref.stream()
         
         participants_list = []
         for doc in docs:
             data = doc.to_dict()
             participant = {
-                "leaderIgn": data.get('leaderIgn', 'N/A'), # Changed from iglIGN
-                "leaderWhatsapp": data.get('leaderWhatsapp', 'N/A'), # Changed from iglFFID
+                "leaderIgn": data.get('leaderIgn', 'N/A'),
+                "leaderWhatsapp": data.get('leaderWhatsapp', 'N/A'),
                 "slotNumber": data.get('slotNumber', 'N/A'),
-                "teamName": data.get('teamName', 'N/A'), # Added team name
-                "members": [] # Changed from teammates
+                "teamName": data.get('teamName', 'N/A'),
+                "members": []
             }
-            # Collect all members (leader + teammates)
             all_members = []
             if data.get('leaderIgn') and data.get('leaderWhatsapp'):
-                all_members.append({'ign': data['leaderIgn'], 'ffid': data['leaderWhatsapp']}) # Assuming whatsapp is FFID here for display
+                all_members.append({'ign': data['leaderIgn'], 'ffid': data['leaderWhatsapp']})
 
             if data.get('memberIgn1'):
-                all_members.append({'ign': data['memberIgn1'], 'ffid': 'N/A'}) # Adjust as per your data structure
+                all_members.append({'ign': data['memberIgn1'], 'ffid': 'N/A'})
             if data.get('memberIgn2'):
                 all_members.append({'ign': data['memberIgn2'], 'ffid': 'N/A'})
             if data.get('memberIgn3'):
@@ -872,7 +733,7 @@ async def get_match_participants(): # Made async
             participant['members'] = all_members
             participants_list.append(participant)
         
-        participants_list.sort(key=lambda x: x.get('slotNumber', float('inf'))) # Sort by slot number
+        participants_list.sort(key=lambda x: x.get('slotNumber', float('inf')))
 
         return jsonify({"success": True, "participants": participants_list}), 200
 
@@ -888,60 +749,43 @@ async def update_registration_status():
     try:
         data = request.json
         registration_id = data.get('registrationId')
-        user_id = data.get('userId') # User who initiated the action (could be admin or the user themselves)
+        user_id = data.get('userId')
         new_status = data.get('status')
-        admin_user_id_from_request = data.get('adminUserId') # Present if request came from admin panel
+        admin_user_id_from_request = data.get('adminUserId')
 
         if not all([registration_id, user_id, new_status]):
             return jsonify({"success": False, "message": "Missing registration ID, user ID, or new status."}), 400
 
         registration_doc_ref = db.collection('registrations').document(registration_id)
-        registration_doc = await registration_doc_ref.get() # Use await for async get()
+        registration_doc = await registration_doc_ref.get()
 
         if not registration_doc.exists:
             return jsonify({"success": False, "message": "Registration not found."}), 404
             
         current_data = registration_doc.to_dict()
         
-        # Authorization check: either the request user is admin, or it's the registered user themselves
-        if not (is_admin(admin_user_id_from_request) or current_data.get('leaderUid') == user_id): # Changed from userId to leaderUid
+        if not (is_admin(admin_user_id_from_request) or current_data.get('leaderUid') == user_id):
             return jsonify({"success": False, "message": "Unauthorized: You can only modify your own registrations or require admin privileges."}), 403
             
         if current_data.get('status') == 'canceled' and new_status == 'canceled':
             return jsonify({"success": False, "message": "This registration is already canceled."}), 400
 
-        await registration_doc_ref.update({"status": new_status}) # Use await for update()
+        await registration_doc_ref.update({"status": new_status})
 
         if new_status == 'canceled':
             match_id = current_data.get('matchId')
             slot_number = current_data.get('slotNumber')
-            entry_fee = current_data.get('entryFee', 0.0) # Get entry fee for refund
 
             if match_id and slot_number:
-                release_slot_in_memory(match_id, slot_number) # Release slot if canceled
+                release_slot_in_memory(match_id, slot_number)
                 print(f"Slot {slot_number} for {match_id} released due to cancellation.")
                 
-            # Refund to wallet if entry fee was paid
-            if entry_fee > 0:
-                refund_success = await update_user_wallet_balance(
-                    user_id,
-                    entry_fee,
-                    'credit',
-                    reference_id=registration_id,
-                    description=f"Refund for cancelled registration: {current_data.get('matchType')} ({match_id})"
-                )
-                if refund_success:
-                    print(f"Refunded ₹{entry_fee:.2f} to user {user_id} for cancellation of {registration_id}.")
-                else:
-                    print(f"Failed to refund ₹{entry_fee:.2f} to user {user_id} for cancellation of {registration_id}.")
-
             telegram_message = f"""*Free Fire Tournament Registration Canceled!*
 *User ID:* `{user_id}`
 *Registration ID:* `{registration_id}`
 *Match Type:* `{current_data.get('matchType')}`
 *Match ID:* `{match_id}`
 *Slot Number:* `{slot_number}`
-*Refund Amount:* ₹{entry_fee:.2f}
 *Canceled At:* `{datetime.now(IST_TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')}`
 """
             send_telegram_message(telegram_message)
@@ -960,22 +804,22 @@ async def update_auto_delete_preference():
         data = request.json
         registration_id = data.get('registrationId')
         user_id = data.get('userId')
-        auto_delete = data.get('autoDelete') # boolean
+        auto_delete = data.get('autoDelete')
 
         if not all([registration_id, user_id, auto_delete is not None]):
             return jsonify({"success": False, "message": "Missing registration ID, user ID, or autoDelete preference."}), 400
 
         registration_doc_ref = db.collection('registrations').document(registration_id)
-        registration_doc = await registration_doc_ref.get() # Use await
+        registration_doc = await registration_doc_ref.get()
 
         if not registration_doc.exists:
             return jsonify({"success": False, "message": "Registration not found."}), 404
             
         current_data = registration_doc.to_dict()
-        if current_data.get('leaderUid') != user_id: # Changed from userId to leaderUid
+        if current_data.get('leaderUid') != user_id:
             return jsonify({"success": False, "message": "Unauthorized: You can only modify your own registrations."}), 403
 
-        await registration_doc_ref.update({"autoDeleteOnCompletion": auto_delete}) # Use await
+        await registration_doc_ref.update({"autoDeleteOnCompletion": auto_delete})
         return jsonify({"success": True, "message": "Auto-delete preference updated successfully."}), 200
     except Exception as e:
         print(f"Error updating auto-delete preference: {e}")
@@ -988,33 +832,31 @@ async def delete_registration():
     try:
         data = request.json
         registration_id = data.get('registrationId')
-        user_id = data.get('userId') # The user attempting the deletion
-        admin_user_id_from_request = data.get('adminUserId') # Only if from admin panel
+        user_id = data.get('userId')
+        admin_user_id_from_request = data.get('adminUserId')
 
         if not registration_id or not user_id:
             return jsonify({"success": False, "message": "Registration ID and User ID are required for deletion."}), 400
 
         registration_doc_ref = db.collection('registrations').document(registration_id)
-        registration_doc = await registration_doc_ref.get() # Use await
+        registration_doc = await registration_doc_ref.get()
 
         if not registration_doc.exists:
             return jsonify({"success": False, "message": "Registration not found."}), 404
 
         registration_data = registration_doc.to_dict()
         
-        # Authorization check: must be admin OR the actual user who registered
-        if not (is_admin(admin_user_id_from_request) or registration_data.get('leaderUid') == user_id): # Changed from userId to leaderUid
+        if not (is_admin(admin_user_id_from_request) or registration_data.get('leaderUid') == user_id):
             return jsonify({"success": False, "message": "Unauthorized deletion attempt."}), 403
             
         match_id = registration_data.get('matchId')
         slot_number = registration_data.get('slotNumber')
         
-        # Release slot only if it was not already canceled (to prevent double-release)
         if match_id and slot_number and registration_data.get('status') != 'canceled':
             release_slot_in_memory(match_id, slot_number)
             print(f"Slot {slot_number} for {match_id} released due to manual deletion.")
 
-        await registration_doc_ref.delete() # Use await
+        await registration_doc_ref.delete()
 
         telegram_message = f"""*Free Fire Tournament Registration Manually Deleted!*
 *User ID:* `{user_id}`
@@ -1093,7 +935,7 @@ async def delete_firebase_user_api_admin():
             send_telegram_message(telegram_message)
             return jsonify({"success": True, "message": f"User with UID {target_uid} deleted successfully."}), 200
         elif target_email:
-            user = auth.get_user_by_email(target_email) # Get UID from email
+            user = auth.get_user_by_email(target_email)
             auth.delete_user(user.uid)
             telegram_message = f"""*Admin Action: Firebase User Deleted!*
 *Admin UID:* `{admin_user_id}`
@@ -1126,7 +968,7 @@ async def update_firebase_user_password_api_admin():
         
     try:
         user_to_update_uid = target_uid
-        if target_email and not target_uid: # If only email is provided, get UID by email
+        if target_email and not target_uid:
             user = auth.get_user_by_email(target_email)
             user_to_update_uid = user.uid
 
@@ -1160,7 +1002,7 @@ async def update_website_content_api_admin():
             return jsonify({"success": False, "message": "Content data is missing."}), 400
 
         doc_ref = db.collection('configs').document('website_content')
-        await doc_ref.set(content, merge=True) # Use merge=True to update existing fields or add new ones
+        await doc_ref.set(content, merge=True)
         print(f"Admin {admin_user_id} updated website content.")
         return jsonify({"success": True, "message": "Website content updated successfully."}), 200
     except Exception as e:
@@ -1173,9 +1015,9 @@ async def manage_match_slots_api_admin():
     """Admin API to add, update, or delete match slots."""
     try:
         data = request.json
-        action = data.get('action') # 'add', 'update', 'delete'
+        action = data.get('action')
         slot_id = data.get('id')
-        slot_data = data.get('data') # For 'add' or 'update'
+        slot_data = data.get('data')
         admin_user_id = data.get('adminUserId')
 
         if not is_admin(admin_user_id):
@@ -1189,18 +1031,18 @@ async def manage_match_slots_api_admin():
             if not slot_data: return jsonify({"success": False, "message": "Slot data is missing for add action."}), 400
             await doc_ref.set(slot_data)
             print(f"Admin {admin_user_id} added match slot: {slot_id}")
-            initialize_booked_slots_from_firestore_on_startup() # Refresh in-memory slots
+            initialize_booked_slots_from_firestore_on_startup()
             return jsonify({"success": True, "message": f"Match slot '{slot_id}' added successfully."}), 200
         elif action == 'update':
             if not slot_data: return jsonify({"success": False, "message": "Slot data is missing for update action."}), 400
             await doc_ref.update(slot_data)
             print(f"Admin {admin_user_id} updated match slot: {slot_id}")
-            initialize_booked_slots_from_firestore_on_startup() # Refresh in-memory slots
+            initialize_booked_slots_from_firestore_on_startup()
             return jsonify({"success": True, "message": f"Match slot '{slot_id}' updated successfully."}), 200
         elif action == 'delete':
             await doc_ref.delete()
             print(f"Admin {admin_user_id} deleted match slot: {slot_id}")
-            initialize_booked_slots_from_firestore_on_startup() # Refresh in-memory slots
+            initialize_booked_slots_from_firestore_on_startup()
             return jsonify({"success": True, "message": f"Match slot '{slot_id}' deleted successfully."}), 200
         else:
             return jsonify({"success": False, "message": "Invalid action specified for match slots."}), 400
@@ -1226,7 +1068,7 @@ async def manage_schedule_items_api_admin():
 
         if action == 'add':
             if not item_data: return jsonify({"success": False, "message": "Schedule item data missing for add."}), 400
-            new_doc_ref = await collection_ref.add(item_data) # .add() returns tuple (timestamp, DocumentReference)
+            new_doc_ref = await collection_ref.add(item_data)
             print(f"Admin {admin_user_id} added schedule item: {new_doc_ref[1].id}")
             return jsonify({"success": True, "message": f"Schedule item added successfully with ID: {new_doc_ref[1].id}"}), 200
         elif action == 'update':
@@ -1286,7 +1128,6 @@ async def manage_prize_items_api_admin():
         return jsonify({"success": False, "message": f"Server error managing prize items: {e}"}), 500
 
 
-# MODIFY EXISTING ENDPOINT
 @app.route('/api/admin/update_match_room_details', methods=['POST'])
 async def admin_update_match_room_details_api_admin():
     try:
@@ -1296,7 +1137,6 @@ async def admin_update_match_room_details_api_admin():
         room_password = data.get('roomPassword', '')
         admin_user_id = data.get('adminUserId')
 
-        # SECURE ADMIN VERIFICATION
         ADMIN_UID = os.environ.get('ADMIN_UID')
         if admin_user_id != ADMIN_UID:
             return jsonify(success=False, message="Unauthorized access"), 403
@@ -1304,7 +1144,6 @@ async def admin_update_match_room_details_api_admin():
         if not match_id:
             return jsonify(success=False, message="Match ID is required"), 400
 
-        # FIXED QUERY (remove isCompleted filter)
         registrations_ref = db.collection('registrations') \
             .where('matchId', '==', match_id) \
             .where('status', '==', 'registered')
@@ -1320,7 +1159,7 @@ async def admin_update_match_room_details_api_admin():
             updated_count += 1
         
         if updated_count > 0:
-            await batch.commit() # Use await for batch commit
+            await batch.commit()
         
         return jsonify(
             success=True,
@@ -1340,8 +1179,8 @@ async def update_registration_status_api_admin():
     try:
         data = request.json
         registration_id = data.get('registrationId')
-        user_id = data.get('userId') # Needed to locate the specific registration document path
-        status = data.get('status') # 'canceled', 'completed', 'registered', etc.
+        user_id = data.get('userId')
+        status = data.get('status')
         admin_user_id = data.get('adminUserId')
 
         if not is_admin(admin_user_id):
@@ -1350,18 +1189,18 @@ async def update_registration_status_api_admin():
             return jsonify({"success": False, "message": "Registration ID, User ID, and Status are required."}), 400
 
         doc_ref = db.collection('registrations').document(registration_id)
-        doc = await doc_ref.get() # Use await
+        doc = await doc_ref.get()
         if not doc.exists:
             return jsonify({"success": False, "message": "Registration not found."}), 404
 
         update_fields = {'status': status}
         if status == 'canceled':
-            update_fields['roomCode'] = '' # Clear room code/password on cancellation
+            update_fields['roomCode'] = ''
             update_fields['roomPassword'] = ''
         elif status == 'completed':
-            update_fields['isCompleted'] = True # Mark as completed
+            update_fields['isCompleted'] = True
 
-        await doc_ref.update(update_fields) # Use await
+        await doc_ref.update(update_fields)
         print(f"Admin {admin_user_id} updated registration {registration_id} status to '{status}'.")
         return jsonify({"success": True, "message": f"Registration status updated to '{status}'."}), 200
     except Exception as e:
@@ -1375,7 +1214,7 @@ async def delete_registration_api_admin():
     try:
         data = request.json
         registration_id = data.get('registrationId')
-        user_id = data.get('userId') # Used for logging/context, not strictly needed for doc_ref if top-level
+        user_id = data.get('userId')
         admin_user_id = data.get('adminUserId')
 
         if not is_admin(admin_user_id):
@@ -1384,11 +1223,11 @@ async def delete_registration_api_admin():
             return jsonify({"success": False, "message": "Registration ID and User ID are required for deletion."}), 400
 
         doc_ref = db.collection('registrations').document(registration_id)
-        doc = await doc_ref.get() # Use await
+        doc = await doc_ref.get()
         if not doc.exists:
             return jsonify({"success": False, "message": "Registration not found for deletion."}), 404
 
-        await doc_ref.delete() # Use await
+        await doc_ref.delete()
         print(f"Admin {admin_user_id} deleted registration: {registration_id}")
         return jsonify({"success": True, "message": "Registration deleted successfully."}), 200
     except Exception as e:
@@ -1409,17 +1248,13 @@ async def get_all_registrations_api_admin():
             return jsonify({"success": False, "message": "Unauthorized: Admin privileges required."}), 403
 
         registrations_list = []
-        # Use db.collection('registrations') if registrations are in a top-level collection.
-        # Use db.collection_group('registrations') if registrations are subcollections under user documents.
-        # Assuming 'registrations' is a top-level collection as used in register_tournament.
         docs = db.collection('registrations').stream()
 
         for doc in docs:
             reg_data = doc.to_dict()
             reg_data['id'] = doc.id
-            reg_data['registrationTimestamp'] = format_timestamp(reg_data.get('registrationTimestamp')) # Format timestamp for display
+            reg_data['registrationTimestamp'] = format_timestamp(reg_data.get('registrationTimestamp'))
 
-            # Server-side calculation for match completion status
             match_time_str = reg_data.get('matchTime')
             if match_time_str:
                 reg_data['isCompleted'] = is_match_completed_server_side(match_time_str)
@@ -1430,7 +1265,6 @@ async def get_all_registrations_api_admin():
 
             registrations_list.append(reg_data)
 
-        # Sort by timestamp (most recent first) for consistent display in admin panel
         registrations_list.sort(key=lambda x: x.get('registrationTimestamp', '9999-12-31 23:59:59'), reverse=True)
 
         print(f"Admin {admin_user_id} fetched {len(registrations_list)} registrations.")
@@ -1444,21 +1278,14 @@ async def get_all_registrations_api_admin():
 # =====================================================================
 # YOUR EXISTING CUSTOM ADMIN ROUTES HERE
 # =====================================================================
-# If you have other specific admin routes or functionalities,
-# copy them into this section.
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    # IMPORTANT: Ensure this list includes ALL domains your frontend might be hosted on.
-    # For GitHub Pages, it's typically https://USERNAME.github.io or https://USERNAME.github.io/REPONAME/
-    allowed_origins = ["https://www.thatournaments.xyz", "https://trendhiveacademy.github.io"] # Add your GitHub Pages URL here
+    allowed_origins = ["https://www.thatournaments.xyz", "https://trendhiveacademy.github.io"]
     
     if origin and origin in allowed_origins:
         response.headers['Access-Control-Allow-Origin'] = origin
     else:
-        # If the origin is not in the allowed list, you might want to set a default or deny.
-        # For development, you might use "*", but NEVER in production.
-        # For production, it's safer to explicitly deny or not set the header if origin is not allowed.
         pass 
 
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
@@ -1468,11 +1295,8 @@ def after_request(response):
 
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def options_handler(path):
-    # This handles CORS preflight requests for all /api routes
     return make_response('', 200)
 
-
-# ADD THIS NEW ENDPOINT
 @app.route('/api/admin/update_single_registration_room_details', methods=['POST'])
 async def update_single_registration_room_details():
     try:
@@ -1482,13 +1306,13 @@ async def update_single_registration_room_details():
         room_password = data.get('roomPassword', '')
         admin_user_id = data.get('adminUserId')
 
-        if not is_admin(admin_user_id):
-            return jsonify({"success": False, "message": "Unauthorized: Admin privileges required."}), 403
+        ADMIN_UID = os.environ.get('ADMIN_UID')
+        if admin_user_id != ADMIN_UID:
+            return jsonify({"success": False, "message": "Unauthorized access"}), 403
 
         if not registration_id:
-            return jsonify({"success": False, "message": "Registration ID is required."}), 400
+            return jsonify({"success": False, "message": "Registration ID is required"}), 400
 
-        # Update the document
         doc_ref = db.collection('registrations').document(registration_id)
         await doc_ref.update({
             'roomCode': room_code,
@@ -1503,132 +1327,12 @@ async def update_single_registration_room_details():
         return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 500
 
 # =====================================================================
-# WALLET API ENDPOINTS
+# REMOVED WALLET API ENDPOINTS
 # =====================================================================
 
-@app.route('/api/wallet', methods=['GET'])
-async def get_wallet_balance_api():
-    user_id = request.args.get('userId')
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required"}), 400
-    
-    balance = await get_user_wallet_balance(user_id)
-    if balance is not None:
-        return jsonify({"success": True, "balance": balance}), 200
-    else:
-        return jsonify({"success": False, "message": "Failed to retrieve wallet balance"}), 500
-
-@app.route('/api/wallet/transactions', methods=['GET'])
-async def get_wallet_transactions_api():
-    user_id = request.args.get('userId')
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required"}), 400
-
-    try:
-        transactions_ref = db.collection('transactions')
-        query = transactions_ref.where('userId', '==', user_id).order_by('timestamp', direction=firestore.Query.DESCENDING).limit(20)
-        
-        docs = await query.get()
-        transactions = []
-        for doc in docs:
-            transaction_data = doc.to_dict()
-            transaction_data['id'] = doc.id
-            transaction_data['timestamp'] = format_timestamp(transaction_data.get('timestamp'))
-            transactions.append(transaction_data)
-        
-        return jsonify({"success": True, "transactions": transactions}), 200
-    except Exception as e:
-        print(f"Error fetching transactions for {user_id}: {e}")
-        traceback.print_exc()
-        return jsonify({"success": False, "message": "Failed to fetch transactions"}), 500
-
 # =====================================================================
-# RAZORPAY CONFIGURATION AND API ENDPOINTS
+# REMOVED RAZORPAY CONFIGURATION AND API ENDPOINTS
 # =====================================================================
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_e7y373gIq43n23') # Replace with your actual key ID
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'B8bO9vT1sQ2rW4xY6zC8aD0eF2gH4jK6') # Replace with your actual key secret
-razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-razorpay_client.set_app_details({"title": "Flask App", "version": "1.0"}) # Optional: Set app details
-
-@app.route('/api/create-razorpay-order', methods=['POST'])
-async def create_razorpay_order():
-    data = request.json
-    amount = data.get('amount')
-    user_id = data.get('userId')
-    user_email = data.get('userEmail')
-    user_name = data.get('userName', 'Guest')
-
-    if not all([amount, user_id, user_email]):
-        return jsonify({"success": False, "message": "Missing amount, user ID, or user email"}), 400
-
-    try:
-        # Convert amount to paise (Razorpay expects amount in smallest currency unit)
-        amount_paise = int(float(amount) * 100) # Ensure it's an integer
-        if amount_paise <= 0:
-            return jsonify({"success": False, "message": "Amount must be positive"}), 400
-
-        order_receipt_id = f"rcpt_{user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        order = razorpay_client.order.create({
-            'amount': amount_paise,
-            'currency': 'INR',
-            'receipt': order_receipt_id,
-            'payment_capture': '1' # Auto capture payment
-        })
-        print(f"Razorpay Order Created: {order}")
-        return jsonify({"success": True, "order": order}), 200
-    except Exception as e:
-        print(f"Error creating Razorpay order: {e}")
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Failed to create order: {str(e)}"}), 500
-
-@app.route('/api/verify-razorpay-payment', methods=['POST'])
-async def verify_razorpay_payment():
-    data = request.json
-    razorpay_order_id = data.get('razorpay_order_id')
-    razorpay_payment_id = data.get('razorpay_payment_id')
-    razorpay_signature = data.get('razorpay_signature')
-    user_id = data.get('userId')
-    amount_paid = data.get('amount') # This amount is in original currency (e.g., INR)
-
-    if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature, user_id, amount_paid]):
-        return jsonify({"success": False, "message": "Missing payment verification details"}), 400
-
-    try:
-        # Verify the payment signature
-        # Create a string with the order_id and payment_id to verify the signature
-        message = f"{razorpay_order_id}|{razorpay_payment_id}"
-        expected_signature = hmac.new(
-            RAZORPAY_KEY_SECRET.encode('utf-8'),
-            message.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
-
-        if expected_signature == razorpay_signature:
-            # Payment is successful and verified
-            print(f"Razorpay Payment Verified: Order ID {razorpay_order_id}, Payment ID {razorpay_payment_id}")
-
-            # Credit the user's wallet
-            credit_success = await update_user_wallet_balance(
-                user_id,
-                float(amount_paid), # Use the original amount
-                'credit',
-                reference_id=razorpay_payment_id,
-                description=f"Funds added via Razorpay (Order: {razorpay_order_id})"
-            )
-
-            if credit_success:
-                return jsonify({"success": True, "message": "Payment verified and wallet credited."}), 200
-            else:
-                return jsonify({"success": False, "message": "Payment verified but failed to credit wallet."}), 500
-        else:
-            print("Razorpay Signature Verification Failed.")
-            return jsonify({"success": False, "message": "Payment verification failed: Signature mismatch."}), 400
-
-    except Exception as e:
-        print(f"Error verifying Razorpay payment: {e}")
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Payment verification error: {str(e)}"}), 500
-
 
 # =====================================================================
 # DAILY RESET FUNCTIONS
@@ -1639,22 +1343,18 @@ def reset_daily_slots():
     try:
         global available_slots
         
-        # Reset in-memory slots
         for match_id in available_slots:
             available_slots[match_id]['booked_slots'] = []
         print("✅ In-memory slots reset")
         
-        # Clear completed registrations
         now_ist = datetime.now(IST_TIMEZONE)
         registrations_ref = db.collection('registrations')
         
-        # Find registrations for completed matches
         for doc in registrations_ref.where('status', '==', 'registered').stream():
             data = doc.to_dict()
             match_time = data.get('matchTime')
             
             if match_time and is_match_completed_server_side(match_time):
-                # Delete or mark as completed based on preference
                 if data.get('autoDeleteOnCompletion', True):
                     doc.reference.delete()
                 else:
@@ -1662,7 +1362,6 @@ def reset_daily_slots():
         
         print("✅ Completed registrations cleared")
         
-        # Refresh in-memory state from Firestore
         initialize_booked_slots_from_firestore_on_startup()
         print("🔄 Slot memory refreshed from Firestore")
         
@@ -1675,21 +1374,7 @@ def reset_daily_slots():
 # APPLICATION STARTUP
 # =====================================================================
 if __name__ == '__main__':
-    # Initialize scheduler
     scheduler = BackgroundScheduler(timezone=IST_TIMEZONE)
-    # Schedule daily reset at 00:01 IST
     scheduler.add_job(reset_daily_slots, 'cron', hour=0, minute=1)
     scheduler.start()
     print("⏰ Daily reset scheduler started")
-# =====================================================================
-    #app.run(debug=True, host='0.0.0.0', port=5000)
-    # Only initialize in development mode
-    #if os.getenv('ENV') == 'development':
-        #initialize_booked_slots_from_firestore_on_startup()
-# =====================================================================
-    # Run the Flask application
-    # debug=True: Enables auto-reloading of Python code changes and debug tools.
-    # host='0.0.0.0': Makes the server accessible externally.
-    # port=5000: The port on which the Flask server will listen.
-    #app.run(debug=True, host='0.0.0.0', port=5000)
-# =====================================================================
