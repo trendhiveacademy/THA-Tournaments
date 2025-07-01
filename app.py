@@ -844,7 +844,8 @@ async def register_for_match():
             }
 
         # Execute the transaction
-        transaction_result = await db.run_transaction(_register_transaction_logic)
+        # CORRECTED LINE: Pass db.transaction() to the decorated function
+        transaction_result = await _register_transaction_logic(db.transaction())
 
         # Send Telegram notification AFTER the transaction has successfully committed
         if transaction_result.get("success"):
@@ -1487,9 +1488,9 @@ async def delete_registration_api_admin():
         print(f"Admin {admin_user_id} deleted registration: {registration_id}")
         return jsonify({"success": True, "message": "Registration deleted successfully."}), 200
     except Exception as e:
-        print(f"Error deleting registration (Admin API): {e}")
+        print(f"Error deleting registration: {e}")
         traceback.print_exc()
-        return jsonify({"success": False, "message": f"Server error deleting registration: {e}"}), 500
+        return jsonify({"success": False, "message": f"An error occurred during deletion: {str(e)}"}), 500
 
 
 @app.route('/api/admin/get_all_registrations', methods=['GET'])
