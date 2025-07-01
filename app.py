@@ -155,7 +155,17 @@ def format_time_to_12hr_ist(time_24hr_str):
     try:
         # Create a dummy datetime object for today to parse the time
         dummy_date = datetime.now(IST_TIMEZONE).date()
-        time_obj = datetime.strptime(time_24hr_str, '%H:%M').time()
+        
+        # Handle emoji in time string if present, like '🕑 2:00 PM '
+        # Attempt to find time part, assuming it's the second to last element if PM/AM is present
+        parts = time_24hr_str.strip().split(' ')
+        time_only_str = parts[-2] if len(parts) > 1 and ('AM' in parts[-1] or 'PM' in parts[-1]) else parts[-1]
+
+        # Try parsing with AM/PM first, then fallback to 24-hour if it fails
+        try:
+            time_obj = datetime.strptime(time_only_str + ' ' + parts[-1] if 'AM' in parts[-1] or 'PM' in parts[-1] else time_only_str, '%I:%M %p').time()
+        except ValueError:
+            time_obj = datetime.strptime(time_only_str, '%H:%M').time()
         
         # Combine to a datetime object for formatting
         dt_obj = datetime.combine(dummy_date, time_obj)
@@ -193,7 +203,7 @@ def book_slot_in_memory(match_slot_id, slot_number):
     print(f"In-memory: Booked slot {slot_number} for match {match_slot_id}")
 
 # Example: send_telegram_message
-async def send_telegram_message(message):
+def send_telegram_message(message, parse_mode="HTML"): # Changed to def, removed async
     """Sends a message to a Telegram bot."""
     TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
     TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -205,7 +215,7 @@ async def send_telegram_message(message):
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
         'text': message,
-        'parse_mode': 'HTML' # Use HTML for basic formatting
+        'parse_mode': parse_mode # Use HTML for basic formatting
     }
     try:
         response = requests.post(url, json=payload)
@@ -303,27 +313,28 @@ def is_match_completed_server_side(match_time_str):
         traceback.print_exc()
         return False
 
-def send_telegram_message(message, parse_mode="Markdown"):
-    """Sends a message to the configured Telegram chat."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID or TELEGRAM_BOT_TOKEN == 'YOUR_TELEGRAM_BOT_TOKEN' or TELEGRAM_CHAT_ID == 'YOUR_TELEGRAM_CHAT_ID':
-        print("Telegram bot token or chat ID not configured or using default placeholders. Skipping Telegram message.")
-        return False
+# Already defined above, removed duplicate
+# def send_telegram_message(message, parse_mode="Markdown"):
+#     """Sends a message to the configured Telegram chat."""
+#     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID or TELEGRAM_BOT_TOKEN == 'YOUR_TELEGRAM_BOT_TOKEN' or TELEGRAM_CHAT_ID == 'YOUR_TELEGRAM_CHAT_ID':
+#         print("Telegram bot token or chat ID not configured or using default placeholders. Skipping Telegram message.")
+#         return False
 
-    telegram_api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    telegram_payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": parse_mode
-    }
-    try:
-        response = requests.post(telegram_api_url, json=telegram_payload)
-        response.raise_for_status() # Raise an exception for HTTP errors
-        print("Telegram message sent successfully.")
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending Telegram message: {e}")
-        traceback.print_exc()
-        return False
-    return True
+#     telegram_api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+#     telegram_payload = {
+#         "chat_id": TELEGRAM_CHAT_ID,
+#         "text": message,
+#         "parse_mode": parse_mode
+#     }
+#     try:
+#         response = requests.post(telegram_api_url, json=telegram_payload)
+#         response.raise_for_status() # Raise an exception for HTTP errors
+#         print("Telegram message sent successfully.")
+#     except requests.exceptions.RequestException as e:
+#         print(f"Error sending Telegram message: {e}")
+#         traceback.print_exc()
+#         return False
+#     return True
 
 
 # ... (existing helper functions)
@@ -359,35 +370,37 @@ def run_startup_tasks():
 # These assume `available_slots` is initialized by `initialize_booked_slots_from_firestore_on_startup()`
 # and updated by admin actions.
 
-def get_next_available_slot(match_id):
-    """Finds smallest available slot number with date awareness"""
-    if match_id not in available_slots:
-        print(f"Error: Match ID '{match_id}' not found")
-        return None
+# Already defined above, removed duplicate
+# def get_next_available_slot(match_id):
+#     """Finds smallest available slot number with date awareness"""
+#     if match_id not in available_slots:
+#         print(f"Error: Match ID '{match_id}' not found")
+#         return None
 
-    slot_info = available_slots[match_id]
-    current_booked = slot_info.get('booked_slots', [])
-    total_allowed = slot_info['max_players']
+#     slot_info = available_slots[match_id]
+#     current_booked = slot_info.get('booked_slots', [])
+#     total_allowed = slot_info['max_players']
 
-    # Find first available slot
-    for slot_num in range(1, total_allowed + 1):
-        if slot_num not in current_booked:
-            return slot_num
-    return None  # No slots available
+#     # Find first available slot
+#     for slot_num in range(1, total_allowed + 1):
+#         if slot_num not in current_booked:
+#             return slot_num
+#     return None  # No slots available
 
-def book_slot_in_memory(match_id, slot_number):
-    """Marks a slot as booked in the in-memory `available_slots` dictionary."""
-    if match_id in available_slots:
-        if 'booked_slots' not in available_slots[match_id]:
-            available_slots[match_id]['booked_slots'] = [] # Initialize if not present
+# Already defined above, removed duplicate
+# def book_slot_in_memory(match_id, slot_number):
+#     """Marks a slot as booked in the in-memory `available_slots` dictionary."""
+#     if match_id in available_slots:
+#         if 'booked_slots' not in available_slots[match_id]:
+#             available_slots[match_id]['booked_slots'] = [] # Initialize if not present
         
-        if slot_number not in available_slots[match_id]['booked_slots']:
-            available_slots[match_id]['booked_slots'].append(slot_number)
-            available_slots[match_id]['booked_slots'].sort() # Keep sorted
-            print(f"Booked slot {slot_number} for {match_id}. Current booked: {available_slots[match_id]['booked_slots']}")
-            return True
-    print(f"Failed to book slot {slot_number} for {match_id}. Either match_id not found or slot already booked.")
-    return False
+#         if slot_number not in available_slots[match_id]['booked_slots']:
+#             available_slots[match_id]['booked_slots'].append(slot_number)
+#             available_slots[match_id]['booked_slots'].sort() # Keep sorted
+#             print(f"Booked slot {slot_number} for {match_id}. Current booked: {available_slots[match_id]['booked_slots']}")
+#             return True
+#     print(f"Failed to book slot {slot_number} for {match_id}. Either match_id not found or slot already booked.")
+#     return False
 
 def release_slot_in_memory(match_id, slot_number):
     """Releases a slot from the in-memory `available_slots` dictionary."""
@@ -817,24 +830,39 @@ async def register_for_match():
             # Update in-memory slot count (if your in-memory system is separate from Firestore, this is fine)
             book_slot_in_memory(match_slot_id, registration_data['slotNumber'])
 
-            # Send Telegram notification (can be outside the transaction if not critical for atomicity)
-            # It's generally better to send non-critical notifications AFTER the transaction commits.
-            # But for simplicity, we keep it here for now.
-            telegram_message = (
-                f"🎉 New Registration!\n"
-                f"Team: {team_name}\n"
-                f"Leader: {leader_ign} ({leader_email})\n"
-                f"Match: {slot_data.get('type', 'N/A')} at {match_time_str}\n"
-                f"Fee Paid: ₹{registration_fee:.2f} (from Wallet)\n"
-                f"Slot Number: {registration_data['slotNumber']}"
-            )
-            await send_telegram_message(telegram_message)
-
-            return {"success": True, "message": "Registered for match successfully!", "newBalance": new_balance}
+            # Return data for the main function to use for Telegram notification
+            return {
+                "success": True,
+                "message": "Registered for match successfully!",
+                "newBalance": new_balance,
+                "telegram_message_data": {
+                    "team_name": team_name,
+                    "leader_ign": leader_ign,
+                    "leader_email": leader_email,
+                    "match_type": slot_data.get('type', 'N/A'),
+                    "match_time_str": match_time_str,
+                    "registration_fee": registration_fee,
+                    "slot_number": registration_data['slotNumber']
+                }
+            }
 
         # Execute the transaction
-        result = await db.run_transaction(_register_transaction_logic)
-        return jsonify(result), 200
+        transaction_result = await db.run_transaction(_register_transaction_logic)
+
+        # Send Telegram notification AFTER the transaction has successfully committed
+        if transaction_result.get("success"):
+            telegram_data = transaction_result.pop("telegram_message_data") # Extract and remove
+            telegram_message = (
+                f"🎉 New Registration!\n"
+                f"Team: {telegram_data['team_name']}\n"
+                f"Leader: {telegram_data['leader_ign']} ({telegram_data['leader_email']})\n"
+                f"Match: {telegram_data['match_type']} at {telegram_data['match_time_str']}\n"
+                f"Fee Paid: ₹{telegram_data['registration_fee']:.2f} (from Wallet)\n"
+                f"Slot Number: {telegram_data['slot_number']}"
+            )
+            send_telegram_message(telegram_message) # No longer awaited, as it's not critical for transaction
+
+        return jsonify(transaction_result), 200
 
     except ValueError as ve:
         print(f"Registration validation error: {ve}")
