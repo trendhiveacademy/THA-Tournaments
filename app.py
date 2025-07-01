@@ -268,18 +268,7 @@ def is_match_open_for_registration(match_time_str):
     except Exception as e:
         print(f"Warning: Could not parse 24-hour time '{match_time_str}'. Error: {e}")
         return False # Default to closed if time parsing fails
-# Example: get_user_wallet_balance
-async def get_user_wallet_balance(uid):
-    """Fetches user wallet balance from Firestore."""
-    try:
-        wallet_doc = await db.collection('wallets').document(uid).get()
-        if wallet_doc.exists:
-            return wallet_doc.to_dict().get('balance', 0.0)
-        return 0.0 # Default balance if wallet document doesn't exist
-    except Exception as e:
-        print(f"Error fetching wallet balance for {uid}: {e}")
-        traceback.print_exc()
-        return None # Indicate failure
+
 
 def is_match_completed_server_side(match_time_str):
     """
@@ -484,82 +473,7 @@ def initialize_booked_slots_from_firestore_on_startup():
         print("In-memory slot management might be inconsistent. Please check Firestore connection and data structure.")
 
 
-# =====================================================================
-# WALLET HELPER FUNCTIONS
-# =====================================================================
 
-async def get_user_wallet_balance(user_id):
-    """
-    Fetches the current wallet balance for a given user.
-    If the user has no wallet document, it initializes it to 0.
-    """
-    try:
-        user_wallet_ref = db.collection('wallets').document(user_id)
-        wallet_doc = await user_wallet_ref.get()
-        if wallet_doc.exists:
-            return wallet_doc.get('balance', 0.0)
-        else:
-            # Initialize wallet for new users
-            await user_wallet_ref.set({'balance': 0.0, 'last_updated': firestore.SERVER_TIMESTAMP})
-            return 0.0
-    except Exception as e:
-        print(f"Error getting wallet balance for {user_id}: {e}")
-        traceback.print_exc()
-        return None
-
-async def update_user_wallet_balance(user_id, amount, transaction_type, reference_id=None, description=""):
-    """
-    Updates the user's wallet balance and records a transaction.
-    `transaction_type` should be 'credit' or 'debit'.
-    `reference_id` could be Razorpay payment ID or match registration ID.
-    """
-    if transaction_type not in ['credit', 'debit']:
-        print(f"Invalid transaction type: {transaction_type}")
-        return False
-
-    user_wallet_ref = db.collection('wallets').document(user_id)
-    transactions_ref = db.collection('transactions')
-
-    try:
-        # Use a Firestore transaction to ensure atomicity for balance updates
-        @firestore.transactional
-        async def update_in_transaction(transaction):
-            snapshot = await user_wallet_ref.get(transaction=transaction)
-            current_balance = snapshot.get('balance', 0.0) if snapshot.exists else 0.0
-
-            new_balance = current_balance
-            if transaction_type == 'credit':
-                new_balance += amount
-            elif transaction_type == 'debit':
-                if current_balance < amount:
-                    raise ValueError("Insufficient balance for debit transaction.")
-                new_balance -= amount
-
-            await transaction.set(user_wallet_ref, {
-                'balance': new_balance,
-                'last_updated': firestore.SERVER_TIMESTAMP
-            })
-
-            # Record the transaction
-            await transactions_ref.add({
-                'userId': user_id,
-                'amount': amount,
-                'type': transaction_type,
-                'newBalance': new_balance,
-                'timestamp': firestore.SERVER_TIMESTAMP,
-                'referenceId': reference_id,
-                'description': description
-            })
-            return True
-
-        return await update_in_transaction(db.transaction())
-    except ValueError as ve:
-        print(f"Wallet update failed for {user_id}: {ve}")
-        return False
-    except Exception as e:
-        print(f"Error updating wallet for {user_id}: {e}")
-        traceback.print_exc()
-        return False
 
 
 # =====================================================================
@@ -592,10 +506,6 @@ def api_root():
 #     """Renders the user's registered matches page (registered.html)."""
 #     return render_template('registered.html')
 
-# @app.route('/wallet.html')
-# def wallet_page():
-#     """Renders the user's wallet page (wallet.html)."""
-#     return render_template('wallet.html')
 
 # =====================================================================
 # YOUR EXISTING CUSTOM FLASK ROUTES (Frontend or other API) HERE
@@ -747,7 +657,7 @@ def register_for_match():
         return jsonify({"success": False, "message": "Missing required registration information."}), 400
 
     match_slot_doc_ref = db.collection('match_slots').document(match_slot_id)
-    user_wallet_ref = db.collection('wallets').document(leader_uid)
+    
 
     try:
         # Define synchronous transactional logic with proper transaction parameter
