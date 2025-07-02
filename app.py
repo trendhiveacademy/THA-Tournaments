@@ -892,7 +892,7 @@ def update_auto_delete_preference():
     try:
         data = request.json
         registration_id = data.get('registrationId')
-        user_id = data.get('userId')
+        user_id = data.get('userId') # User who initiated the action (could be admin or the user themselves)
         auto_delete = data.get('autoDelete') # boolean
 
         if not all([registration_id, user_id, auto_delete is not None]):
@@ -1424,6 +1424,54 @@ def update_single_registration_room_details():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 500
 
+# NEW ENDPOINT FOR CLEARING ALL REGISTRATIONS
+@app.route('/api/admin/clear_all_registrations', methods=['POST'])
+def clear_all_registrations_api_admin():
+    """Admin API to clear ALL registrations from Firestore and reset in-memory slots."""
+    try:
+        data = request.json
+        admin_user_id = data.get('adminUserId')
+
+        if not is_admin(admin_user_id):
+            return jsonify({"success": False, "message": "Unauthorized: Admin privileges required."}), 403
+
+        print(f"Admin {admin_user_id} initiated clearing ALL registrations.")
+
+        registrations_ref = db.collection('registrations')
+        docs = registrations_ref.stream()
+        
+        deleted_count = 0
+        batch = db.batch()
+        
+        for doc in docs:
+            batch.delete(doc.reference)
+            deleted_count += 1
+
+        if deleted_count > 0:
+            batch.commit()
+            print(f"Successfully deleted {deleted_count} registrations from Firestore.")
+        else:
+            print("No registrations found to delete.")
+
+        # After clearing, re-initialize in-memory slots to reflect empty state
+        initialize_booked_slots_from_firestore_on_startup()
+        print("In-memory slots re-initialized after clearing all registrations.")
+
+        telegram_message = f"""*Admin Action: All Tournament Registrations Cleared!*
+*Admin UID:* `{admin_user_id}`
+*Number of Registrations Cleared:* `{deleted_count}`
+*Time:* `{datetime.now(IST_TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')}`
+"""
+        send_telegram_message(telegram_message)
+
+        return jsonify({"success": True, "message": f"All {deleted_count} registrations cleared and slots released."}), 200
+
+    except Exception as e:
+        print(f"Error clearing all registrations (Admin API): {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Server error clearing registrations: {e}"}), 500
+
+
 # Removed wallet.html route as wallet is no longer used
 # @app.route('/wallet.html')
 # def wallet_page():
@@ -1545,13 +1593,13 @@ def update_single_registration_room_details():
 #         net_amount = amount - charges
         
 #         # Update wallet
-#         wallet_ref = db.collection('wallets').document(user_id)
-#         wallet_data = wallet_ref.get()
+# #        wallet_ref = db.collection('wallets').document(user_id)
+# #        wallet_data = wallet_ref.get()
         
-#         current_balance = wallet_data.to_dict().get('balance', 0) if wallet_data.exists else 0
-#         new_balance = current_balance + net_amount
+# #        current_balance = wallet_data.to_dict().get('balance', 0) if wallet_data.exists else 0
+# #        new_balance = current_balance + net_amount
         
-#         wallet_ref.set({"balance": new_balance})
+# #        wallet_ref.set({"balance": new_balance})
         
 #         # Record transaction
 #         transaction_data = {
@@ -1593,37 +1641,41 @@ def update_single_registration_room_details():
 # DAILY RESET FUNCTIONS
 # =====================================================================
 def reset_daily_slots():
-    """Resets in-memory slots and clears completed registrations daily"""
-    print("🔄 Starting daily reset of match slots...")
+    """
+    Resets in-memory slots and clears ALL registrations daily.
+    This function is called by the APScheduler.
+    """
+    print(f"🔄 Starting daily reset of match slots and registrations at {datetime.now(IST_TIMEZONE)}...")
     try:
         global available_slots
         
-        # Reset in-memory slots
-        for match_id in available_slots:
-            available_slots[match_id]['booked_slots'] = []
-        print("✅ In-memory slots reset")
-        
-        # Clear completed registrations
-        now_ist = datetime.now(IST_TIMEZONE)
+        # Clear all registrations from Firestore
         registrations_ref = db.collection('registrations')
+        docs = registrations_ref.stream()
         
-        # Find registrations for completed matches
-        for doc in registrations_ref.where('status', '==', 'registered').stream():
-            data = doc.to_dict()
-            match_time = data.get('matchTime')
-            
-            if match_time and is_match_completed_server_side(match_time):
-                # Delete or mark as completed based on preference
-                if data.get('autoDeleteOnCompletion', True):
-                    doc.reference.delete()
-                else:
-                    doc.reference.update({'status': 'completed'})
+        deleted_count = 0
+        batch = db.batch()
         
-        print("✅ Completed registrations cleared")
-        
-        # Refresh in-memory state from Firestore
+        for doc in docs:
+            batch.delete(doc.reference)
+            deleted_count += 1
+
+        if deleted_count > 0:
+            batch.commit()
+            print(f"Successfully deleted {deleted_count} registrations from Firestore during daily reset.")
+        else:
+            print("No registrations found to delete during daily reset.")
+
+        # After clearing, re-initialize in-memory slots to reflect empty state
         initialize_booked_slots_from_firestore_on_startup()
-        print("🔄 Slot memory refreshed from Firestore")
+        print("In-memory slots re-initialized after daily reset.")
+
+        telegram_message = f"""*Automated Daily Reset Complete!*
+*Time:* `{datetime.now(IST_TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')}`
+*Number of Registrations Cleared:* `{deleted_count}`
+*All match slots are now open for new registrations.*
+"""
+        send_telegram_message(telegram_message)
         
     except Exception as e:
         print(f"❌ Daily reset failed: {e}")
@@ -1642,8 +1694,8 @@ def reset_daily_slots():
 # so keeping it as is.
 # Initialize scheduler
 scheduler = BackgroundScheduler(timezone=IST_TIMEZONE)
-# Schedule daily reset at 00:01 IST
-scheduler.add_job(reset_daily_slots, 'cron', hour=0, minute=1)
+# Schedule daily reset at 03:00 IST (3 AM)
+scheduler.add_job(reset_daily_slots, 'cron', hour=3, minute=0) # Changed to 3 AM
 scheduler.start()
 print("⏰ Daily reset scheduler started")
 
