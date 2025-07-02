@@ -18,10 +18,10 @@ import traceback # For printing full tracebacks during debugging
 import requests # For Telegram notifications
 import json
 
-# Add to imports
-import razorpay
-import hmac
-import hashlib
+# Removed Razorpay and hmac/hashlib imports as payments are no longer needed
+# import razorpay
+# import hmac
+# import hashlib
 # =====================================================================
 # LOAD ENVIRONMENT VARIABLES
 # =====================================================================
@@ -97,7 +97,6 @@ if not scheduler.running:  # Line 84 (now safe)
     pass
 
 
-
 # =====================================================================
 # GLOBAL VARIABLES (for in-memory caching and ADMIN_UID)
 # =====================================================================
@@ -133,7 +132,6 @@ def is_admin(user_id):
 def format_timestamp(timestamp_obj):
     if timestamp_obj is None:
         return "N/A"
-    # ... rest of your code ...
     """
     Formats a Firestore Timestamp object or datetime object into a readable string (IST).
     Handles potential timezone differences and ensures a consistent display format.
@@ -391,46 +389,45 @@ def initialize_booked_slots_from_firestore_on_startup():
 # YOUR EXISTING CUSTOM HELPER FUNCTIONS HERE
 # =====================================================================
 # Any other helper functions you have, copy them here.
-def process_wallet_payment(user_id, amount, description, match_id=""):
-    """Deducts amount from wallet with transaction support"""
-    try:
-        wallet_ref = db.collection('wallets').document(user_id)
-        transaction = db.transaction()
+# Removed process_wallet_payment as wallet is no longer used
+# def process_wallet_payment(user_id, amount, description, match_id=""):
+#     """Deducts amount from wallet with transaction support"""
+#     try:
+#         wallet_ref = db.collection('wallets').document(user_id)
+#         transaction = db.transaction()
         
-        @firestore.transactional
-        def update_in_transaction(transaction, wallet_ref):
-            wallet_doc = wallet_ref.get(transaction=transaction)
-            if not wallet_doc.exists:
-                return False, "Wallet not found"
+#         @firestore.transactional
+#         def update_in_transaction(transaction, wallet_ref):
+#             wallet_doc = wallet_ref.get(transaction=transaction)
+#             if not wallet_doc.exists:
+#                 return False, "Wallet not found"
             
-            current_balance = wallet_doc.to_dict().get('balance', 0)
-            if current_balance < amount:
-                return False, "Insufficient balance"
+#             current_balance = wallet_doc.to_dict().get('balance', 0)
+#             if current_balance < amount:
+#                 return False, "Insufficient balance"
             
-            new_balance = current_balance - amount
-            transaction.update(wallet_ref, {'balance': new_balance})
+#             new_balance = current_balance - amount
+#             transaction.update(wallet_ref, {'balance': new_balance})
             
-            # Record transaction
-            transaction_data = {
-                "userId": user_id,
-                "amount": -amount,
-                "description": description,
-                "status": "success",
-                "type": "tournament_registration",
-                "timestamp": firestore.SERVER_TIMESTAMP,
-                "matchId": match_id
-            }
-            db.collection('transactions').add(transaction_data)
+#             # Record transaction
+#             transaction_data = {
+#                 "userId": user_id,
+#                 "amount": -amount,
+#                 "description": description,
+#                 "status": "success",
+#                 "type": "tournament_registration",
+#                 "timestamp": firestore.SERVER_TIMESTAMP,
+#                 "matchId": match_id
+#             }
+#             db.collection('transactions').add(transaction_data)
             
-            return True, new_balance
+#             return True, new_balance
         
-        return update_in_transaction(transaction, wallet_ref)
-    except Aborted:
-        return False, "Transaction aborted, please retry"
-    except Exception as e:
-        return False, str(e)
-
-
+#         return update_in_transaction(transaction, wallet_ref)
+#     except Aborted:
+#         return False, "Transaction aborted, please retry"
+#     except Exception as e:
+#         return False, str(e)
 
 
 # =====================================================================
@@ -452,21 +449,23 @@ def run_startup_tasks_once():
 def ping():
     return "✅ Tournament API is live."
     
-#@app.route('/')
-#def index():
-    """Renders the main tournament page (index.html)."""
-    #return render_template('index.html')
-    #return "✅ Root route test working!"
+# Removed explicit route for index.html as it's typically served by the web server (e.g., GitHub Pages)
+# @app.route('/')
+# def index():
+#     """Renders the main tournament page (index.html)."""
+#     return render_template('index.html')
 
-#@app.route('/admin_panel.html')
-#def admin_panel_page():
-    """Renders the admin panel page (admin_panel.html)."""
-   #return render_template('admin_panel.html')
+# Removed explicit route for admin_panel.html
+# @app.route('/admin_panel.html')
+# def admin_panel_page():
+#     """Renders the admin panel page (admin_panel.html)."""
+#    return render_template('admin_panel.html')
 
-#@app.route('/registered.html')
-#def registered_page():
-    """Renders the user's registered matches page (registered.html)."""
-    #return render_template('registered.html')
+# Removed explicit route for registered.html
+# @app.route('/registered.html')
+# def registered_page():
+#     """Renders the user's registered matches page (registered.html)."""
+#     return render_template('registered.html')
 
 # =====================================================================
 # YOUR EXISTING CUSTOM FLASK ROUTES (Frontend or other API) HERE
@@ -610,11 +609,10 @@ def register_tournament():
     """
     Handles new tournament registrations from users.
     Registers a user for a specific match slot, saves to Firestore, and sends Telegram message.
+    Payments are removed, all registrations are free.
     """
     try:
         registration_data = request.json
-        # Extract payment method
-        payment_method = registration_data.get('paymentMethod', 'wallet')  # Default to wallet
         if not registration_data:
             return jsonify({"success": False, "message": "No registration data provided"}), 400
 
@@ -633,30 +631,6 @@ def register_tournament():
         if not all([user_id, email, match_id, match_type, match_time, igl_ign, igl_ffid]):
             return jsonify({"success": False, "message": "Missing required registration data. Please provide all necessary fields."}), 400
 
-        # Get entry fee from match slot
-        entry_fee = selected_match_slot.get('entry', 0)
-
-        # Process payment based on method
-        if payment_method == 'wallet':
-            # Deduct from wallet
-            success, result = process_wallet_payment(
-                user_id,
-                entry_fee,
-                f"Tournament entry: {match_type}",
-                match_id
-            )
-            if not success:
-                return jsonify({"success": False, "message": result}), 400
-        else:  # Razorpay
-            # Verify payment here if needed
-            pass
-        
-        # ... [existing registration logic] ...
-         # Add entry fee to registration record
-        registration_to_save["entryFee"] = entry_fee
-        registration_to_save["paymentMethod"] = payment_method
-        
-        
         # Check registration window first (before Firestore operations)
         if not is_match_open_for_registration(match_time):
             return jsonify({"success": False, "message": f"Registration for {match_type} at {match_time} is closed."}), 400
@@ -714,7 +688,9 @@ def register_tournament():
             "status": "registered",
             "autoDeleteOnCompletion": True,
             "roomCode": "",
-            "roomPassword": ""
+            "roomPassword": "",
+            "entryFee": 0, # Entry fee is now always 0
+            "paymentMethod": "free_registration" # Payment method is now free
         }
 
         # Save to Firestore
@@ -732,6 +708,7 @@ def register_tournament():
 *Slot Number:* `{slot_number}`
 *Firestore Doc ID:* `{registration_doc_id}`
 *Client Time:* {client_time}
+*Registration Type:* Free
 """
         if teammates:
             telegram_message += "\n*Teammates:*\n"
@@ -748,9 +725,6 @@ def register_tournament():
         }), 200
 
     except Exception as e:
-        # Handle errors and refund if needed
-        return jsonify({"success": False, "message": f"Payment processing failed: {str(e)}"}), 500
-        
         error_msg = f"Registration error: {str(e)}"
         print(error_msg)
         traceback.print_exc()
@@ -1450,170 +1424,169 @@ def update_single_registration_room_details():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Server error: {str(e)}"}), 500
 
-# =====================================================================
+# Removed wallet.html route as wallet is no longer used
+# @app.route('/wallet.html')
+# def wallet_page():
+#     return render_template('wallet.html')
 
-# Add this route for wallet.html
-@app.route('/wallet.html')
-def wallet_page():
-    return render_template('wallet.html')
-
-# Wallet API Endpoints
-@app.route('/api/wallet', methods=['GET'])
-def get_wallet():
-    user_id = request.args.get('userId')
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required"}), 400
+# Removed Wallet API Endpoints
+# @app.route('/api/wallet', methods=['GET'])
+# def get_wallet():
+#     user_id = request.args.get('userId')
+#     if not user_id:
+#         return jsonify({"success": False, "message": "User ID is required"}), 400
     
-    try:
-        wallet_ref = db.collection('wallets').document(user_id)
-        wallet_data = wallet_ref.get()
+#     try:
+#         wallet_ref = db.collection('wallets').document(user_id)
+#         wallet_data = wallet_ref.get()
         
-        if wallet_data.exists:
-            return jsonify({
-                "success": True,
-                "balance": wallet_data.to_dict().get('balance', 0)
-            }), 200
-        else:
-            # Create wallet if doesn't exist
-            wallet_ref.set({"balance": 0})
-            return jsonify({
-                "success": True,
-                "balance": 0
-            }), 200
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Error fetching wallet: {str(e)}"
-        }), 500
+#         if wallet_data.exists:
+#             return jsonify({
+#                 "success": True,
+#                 "balance": wallet_data.to_dict().get('balance', 0)
+#             }), 200
+#         else:
+#             # Create wallet if doesn't exist
+#             wallet_ref.set({"balance": 0})
+#             return jsonify({
+#                 "success": True,
+#                 "balance": 0
+#             }), 200
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": f"Error fetching wallet: {str(e)}"
+#         }), 500
 
-@app.route('/api/transactions', methods=['GET'])
-def get_transactions():
-    user_id = request.args.get('userId')
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required"}), 400
+# @app.route('/api/transactions', methods=['GET'])
+# def get_transactions():
+#     user_id = request.args.get('userId')
+#     if not user_id:
+#         return jsonify({"success": False, "message": "User ID is required"}), 400
     
-    try:
-        transactions_ref = db.collection('transactions').where('userId', '==', user_id)
-        transactions = [doc.to_dict() for doc in transactions_ref.stream()]
-        return jsonify({
-            "success": True,
-            "transactions": transactions
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Error fetching transactions: {str(e)}"
-        }), 500
+#     try:
+#         transactions_ref = db.collection('transactions').where('userId', '==', user_id)
+#         transactions = [doc.to_dict() for doc in transactions_ref.stream()]
+#         return jsonify({
+#             "success": True,
+#             "transactions": transactions
+#         }), 200
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": f"Error fetching transactions: {str(e)}"
+#         }), 500
 
-@app.route('/api/create_razorpay_order', methods=['POST'])
-def create_razorpay_order():
-    try:
-        data = request.json
-        amount = int(float(data.get('amount')) * 100)  # Convert to paise
-        user_id = data.get('userId')
+# Removed Razorpay API Endpoints
+# @app.route('/api/create_razorpay_order', methods=['POST'])
+# def create_razorpay_order():
+#     try:
+#         data = request.json
+#         amount = int(float(data.get('amount')) * 100)  # Convert to paise
+#         user_id = data.get('userId')
         
-        if not amount or not user_id:
-            return jsonify({"success": False, "message": "Amount and user ID are required"}), 400
+#         if not amount or not user_id:
+#             return jsonify({"success": False, "message": "Amount and user ID are required"}), 400
         
-        # Create order
-        order = razorpay_client.order.create({
-            'amount': amount,
-            'currency': 'INR',
-            'payment_capture': '1'
-        })
+#         # Create order
+#         order = razorpay_client.order.create({
+#             'amount': amount,
+#             'currency': 'INR',
+#             'payment_capture': '1'
+#         })
         
-        return jsonify({
-            "success": True,
-            "order_id": order['id'],
-            "amount": order['amount'],
-            "currency": order['currency'],
-            "key_id": RAZORPAY_KEY_ID
-        }), 200
+#         return jsonify({
+#             "success": True,
+#             "order_id": order['id'],
+#             "amount": order['amount'],
+#             "currency": order['currency'],
+#             "key_id": RAZORPAY_KEY_ID
+#         }), 200
         
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Error creating order: {str(e)}"
-        }), 500
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": f"Error creating order: {str(e)}"
+#         }), 500
 
-@app.route('/api/verify_payment', methods=['POST'])
-def verify_payment():
-    try:
-        data = request.json
-        payment_id = data.get('razorpay_payment_id')
-        order_id = data.get('razorpay_order_id')
-        signature = data.get('razorpay_signature')
-        amount = data.get('amount')  # in rupees
-        user_id = data.get('userId')
+# @app.route('/api/verify_payment', methods=['POST'])
+# def verify_payment():
+#     try:
+#         data = request.json
+#         payment_id = data.get('razorpay_payment_id')
+#         order_id = data.get('razorpay_order_id')
+#         signature = data.get('razorpay_signature')
+#         amount = data.get('amount')  # in rupees
+#         user_id = data.get('userId')
         
-        if not all([payment_id, order_id, signature, amount, user_id]):
-            return jsonify({"success": False, "message": "Missing required parameters"}), 400
+#         if not all([payment_id, order_id, signature, amount, user_id]):
+#             return jsonify({"success": False, "message": "Missing required parameters"}), 400
         
-        # Verify signature
-        generated_signature = hmac.new(
-            RAZORPAY_KEY_SECRET.encode(),
-            f"{order_id}|{payment_id}".encode(),
-            hashlib.sha256
-        ).hexdigest()
+#         # Verify signature
+#         generated_signature = hmac.new(
+#             RAZORPAY_KEY_SECRET.encode(),
+#             f"{order_id}|{payment_id}".encode(),
+#             hashlib.sha256
+#         ).hexdigest()
         
-        if generated_signature != signature:
-            return jsonify({"success": False, "message": "Invalid payment signature"}), 400
+#         if generated_signature != signature:
+#             return jsonify({"success": False, "message": "Invalid payment signature"}), 400
         
-        # Calculate charges
-        charges = 0
-        if amount <= 30:
-            charges = 3
-        elif amount <= 60:
-            charges = 2
-        elif amount <= 100:
-            charges = 1
+#         # Calculate charges
+#         charges = 0
+#         if amount <= 30:
+#             charges = 3
+#         elif amount <= 60:
+#             charges = 2
+#         elif amount <= 100:
+#             charges = 1
         
-        deposit_amount = amount
-        net_amount = amount - charges
+#         deposit_amount = amount
+#         net_amount = amount - charges
         
-        # Update wallet
-        wallet_ref = db.collection('wallets').document(user_id)
-        wallet_data = wallet_ref.get()
+#         # Update wallet
+#         wallet_ref = db.collection('wallets').document(user_id)
+#         wallet_data = wallet_ref.get()
         
-        current_balance = wallet_data.to_dict().get('balance', 0) if wallet_data.exists else 0
-        new_balance = current_balance + net_amount
+#         current_balance = wallet_data.to_dict().get('balance', 0) if wallet_data.exists else 0
+#         new_balance = current_balance + net_amount
         
-        wallet_ref.set({"balance": new_balance})
+#         wallet_ref.set({"balance": new_balance})
         
-        # Record transaction
-        transaction_data = {
-            "userId": user_id,
-            "amount": net_amount,
-            "description": f"Wallet Deposit (₹{amount} - ₹{charges} fee)",
-            "status": "success",
-            "type": "deposit",
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "payment_id": payment_id,
-            "order_id": order_id
-        }
+#         # Record transaction
+#         transaction_data = {
+#             "userId": user_id,
+#             "amount": net_amount,
+#             "description": f"Wallet Deposit (₹{amount} - ₹{charges} fee)",
+#             "status": "success",
+#             "type": "deposit",
+#             "timestamp": firestore.SERVER_TIMESTAMP,
+#             "payment_id": payment_id,
+#             "order_id": order_id
+#         }
         
-        db.collection('transactions').add(transaction_data)
+#         db.collection('transactions').add(transaction_data)
         
-        # Send Telegram notification
-        send_telegram_message(
-            f"New Wallet Deposit!\n"
-            f"User: {user_id}\n"
-            f"Amount: ₹{amount} (Fee: ₹{charges})\n"
-            f"Net: ₹{net_amount}\n"
-            f"New Balance: ₹{new_balance}"
-        )
+#         # Send Telegram notification
+#         send_telegram_message(
+#             f"New Wallet Deposit!\n"
+#             f"User: {user_id}\n"
+#             f"Amount: ₹{amount} (Fee: ₹{charges})\n"
+#             f"Net: ₹{net_amount}\n"
+#             f"New Balance: ₹{new_balance}"
+#         )
         
-        return jsonify({
-            "success": True,
-            "message": "Payment verified and wallet updated",
-            "balance": new_balance
-        }), 200
+#         return jsonify({
+#             "success": True,
+#             "message": "Payment verified and wallet updated",
+#             "balance": new_balance
+#         }), 200
         
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Payment verification failed: {str(e)}"
-        }), 500
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": f"Payment verification failed: {str(e)}"
+#         }), 500
 
 #Last Day Update on 28th June..
 # =====================================================================
@@ -1657,34 +1630,22 @@ def reset_daily_slots():
         traceback.print_exc()
 
 
-
-
+# Removed Razorpay client initialization as payments are no longer needed
+# RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'your_razorpay_key_id')
+# RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'your_razorpay_key_secret')
+# razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+    
 # =====================================================================
 # APPLICATION STARTUP
 # =====================================================================
-# Replace the slot initialization in __main__
-#if __name__ == '__main__':
-    # Initialize scheduler
-    scheduler = BackgroundScheduler(timezone=IST_TIMEZONE)
-    # Schedule daily reset at 00:01 IST
-    scheduler.add_job(reset_daily_slots, 'cron', hour=0, minute=1)
-    scheduler.start()
-    print("⏰ Daily reset scheduler started")
-# =====================================================================
-    #app.run(debug=True, host='0.0.0.0', port=5000)
-    # Only initialize in development mode
-    #if os.getenv('ENV') == 'development':
-        #initialize_booked_slots_from_firestore_on_startup()
-# =====================================================================
+# This block is outside the if __name__ == '__main__' guard in the original file,
+# so keeping it as is.
+# Initialize scheduler
+scheduler = BackgroundScheduler(timezone=IST_TIMEZONE)
+# Schedule daily reset at 00:01 IST
+scheduler.add_job(reset_daily_slots, 'cron', hour=0, minute=1)
+scheduler.start()
+print("⏰ Daily reset scheduler started")
 
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'your_razorpay_key_id')
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'your_razorpay_key_secret')
-razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-    
-# =====================================================================
-    # Run the Flask application
-    # debug=True: Enables auto-reloading of Python code changes and debug tools.
-    # host='0.0.0.0': Makes the server accessible externally.
-    # port=5000: The port on which the Flask server will listen.
-    #app.run(debug=True, host='0.0.0.0', port=5000)
-# =====================================================================
+# Removed app.run as it's typically handled by the hosting environment (e.g., Render)
+# app.run(debug=True, host='0.0.0.0', port=5000)
